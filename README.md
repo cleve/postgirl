@@ -1,0 +1,59 @@
+# 🚀 Postgirl
+
+A secure and user-friendly REST client for Visual Studio Code.
+
+## Features
+
+- **Full HTTP Method Support**: GET, POST, PUT, PATCH, DELETE
+- **Custom Headers**: Add, edit, and manage request headers with ease
+- **Persistent Header Storage**: Save your frequently used headers for quick access
+- **Request Body Editor**: Built-in JSON body editor for POST/PUT/PATCH requests
+- **Response Viewer**: Detailed response information with tabbed interface
+  - Response body with automatic JSON formatting
+  - Response headers
+  - Request information
+  - Status codes with color coding
+  - Response time and size metrics
+- **Export Functionality**: Export request/response data to JSON files
+- **Sidebar Integration**: Quick access from the VS Code Activity Bar
+
+## Getting Started
+
+1. Click the Postgirl icon (🌐) in the Activity Bar
+2. Click **"New Request"** or use the command palette: `Postgirl: Open REST Client`
+3. Enter your API URL
+4. Select the HTTP method
+5. Add headers if needed
+6. Add request body for POST/PUT/PATCH requests
+7. Click **Send**
+
+## Usage
+
+### Making Requests
+
+Enter your API endpoint URL, select the HTTP method, and configure headers as needed. For POST, PUT, and PATCH requests, you can add a JSON request body.
+
+### Managing Headers
+
+- Click **"Add Header"** to add more headers
+- Click **"Save Headers"** to persist your current headers
+- Click **"Load Saved Headers"** to restore previously saved headers
+- View saved headers in the sidebar under **"Saved Headers"**
+
+### Viewing Responses
+
+Responses are displayed in a tabbed interface showing:
+- Response body (automatically formatted JSON)
+- Response headers
+- Request details
+- Status code, response time, and content size
+
+### Exporting Results
+
+Click **"Export Results"** to save the complete request and response data as a JSON file.
+
+## Release Notes
+
+### 0.0.1
+
+Initial release of Postgirl REST Client
