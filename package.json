@@ -3,6 +3,10 @@
   "displayName": "postgirl",
   "description": "Secure rest client",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cleve/postgirl.git"
+  },
   "engines": {
     "vscode": "^1.107.0"
   },
