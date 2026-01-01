@@ -61,8 +61,3 @@ Responses are displayed in a tabbed interface showing:
 
 Click **"Export Results"** to save the complete request and response data as a JSON file.
 
-## Release Notes
-
-### 0.0.1
-
-Initial release of Postgirl REST Client
