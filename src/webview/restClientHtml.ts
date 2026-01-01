@@ -220,6 +220,7 @@ export function getRestClientHtml(): string {
 		
 		<div class="request-section">
 			<h3>Request</h3>
+			
 			<div class="url-section">
 				<select id="method">
 					<option value="GET">GET</option>
@@ -308,6 +309,7 @@ export function getRestClientHtml(): string {
 		const vscode = acquireVsCodeApi();
 		let currentResponse = null;
 		let currentRequest = null;
+		let variables = {}; // Variables loaded from sidebar
 
 		function addHeader() {
 			const container = document.getElementById('headersContainer');
@@ -338,7 +340,7 @@ export function getRestClientHtml(): string {
 
 		function getHeaders() {
 			const headers = [];
-			const headerRows = document.querySelectorAll('.header-row');
+			const headerRows = document.querySelectorAll('#headersContainer .header-row');
 			headerRows.forEach(row => {
 				const key = row.querySelector('.header-key').value.trim();
 				const value = row.querySelector('.header-value').value.trim();
@@ -349,11 +351,32 @@ export function getRestClientHtml(): string {
 			return headers;
 		}
 
+		function replaceVariables(text, vars) {
+			let result = text;
+			for (const [key, value] of Object.entries(vars)) {
+				const regex = new RegExp('\\{\\{' + key + '\\}\\}', 'g');
+				result = result.replace(regex, value);
+			}
+			return result;
+		}
+
 		function sendRequest() {
-			const url = document.getElementById('url').value.trim();
+			let url = document.getElementById('url').value.trim();
 			const method = document.getElementById('method').value;
-			const body = document.getElementById('requestBody').value.trim();
+			let body = document.getElementById('requestBody').value.trim();
 			const headers = getHeaders();
+
+			// Replace variables in URL
+			url = replaceVariables(url, variables);
+			
+			// Replace variables in headers
+			headers.forEach(header => {
+				header.key = replaceVariables(header.key, variables);
+				header.value = replaceVariables(header.value, variables);
+			});
+			
+			// Replace variables in body
+			body = replaceVariables(body, variables);
 
 			if (!url) {
 				vscode.postMessage({
@@ -529,6 +552,10 @@ export function getRestClientHtml(): string {
 					}
 					break;
 
+				case 'variablesLoaded':
+					variables = message.variables || {};
+					break;
+
 				case 'loadRequest':
 					document.getElementById('url').value = message.request.url;
 					document.getElementById('method').value = message.request.method;
@@ -602,8 +629,9 @@ export function getRestClientHtml(): string {
 			tab.addEventListener('click', switchTab);
 		});
 
-		// Load saved headers on startup
+		// Load saved headers and variables on startup
 		loadHeaders();
+		vscode.postMessage({ command: 'loadVariables' });
 	</script>
 </body>
 </html>`;

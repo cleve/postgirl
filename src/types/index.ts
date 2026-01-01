@@ -12,3 +12,9 @@ export interface SavedRequest {
 	body?: string;
 	createdAt: string;
 }
+
+export interface Variable {
+	id: string;
+	name: string;
+	value: string;
+}

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as https from 'https';
 import * as http from 'http';
-import { SavedHeader, SavedRequest } from '../types';
+import { SavedHeader, SavedRequest, Variable } from '../types';
 import { getRestClientHtml } from '../webview/restClientHtml';
 
 export class RestClientPanel {
@@ -62,8 +62,9 @@ export class RestClientPanel {
 						break;
 					case 'loadHeaders':
 						await this.loadHeaders();
-						break;
-					case 'exportResults':
+						break;				case 'loadVariables':
+					await this.loadVariables();
+					break;					case 'exportResults':
 						await this.exportResults(message.data);
 						break;
 					case 'saveRequest':
@@ -172,6 +173,18 @@ export class RestClientPanel {
 		this._panel.webview.postMessage({
 			command: 'headersLoaded',
 			headers: savedHeaders
+		});
+	}
+
+	private async loadVariables() {
+		const variables = this._context.globalState.get<Variable[]>('postgirl.variables', []);
+		const variablesObj: { [key: string]: string } = {};
+		variables.forEach(v => {
+			variablesObj[v.name] = v.value;
+		});
+		this._panel.webview.postMessage({
+			command: 'variablesLoaded',
+			variables: variablesObj
 		});
 	}
 

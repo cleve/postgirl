@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SavedHeader, SavedRequest } from '../types';
+import { SavedHeader, SavedRequest, Variable } from '../types';
 
 export class SidebarItem extends vscode.TreeItem {
 	declare contextValue?: string;
@@ -65,6 +65,17 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 				)
 			];
 
+			const variables = this.context.globalState.get<Variable[]>('postgirl.variables', []);
+			items.push(
+				new SidebarItem(
+					'Variables',
+					`${variables.length} variable(s)`,
+					vscode.TreeItemCollapsibleState.Expanded,
+					undefined,
+					'$(symbol-variable)'
+				)
+			);
+
 			const savedRequests = this.context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
 			if (savedRequests.length > 0) {
 				items.push(
@@ -118,6 +129,29 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 				};
 				return item;
 			});
+		} else if (element.label === 'Variables') {
+			const variables = this.context.globalState.get<Variable[]>('postgirl.variables', []);
+			const items = variables.map(v => {
+				const item = new SidebarItem(
+					v.name,
+					v.value,
+					vscode.TreeItemCollapsibleState.None,
+					undefined,
+					'$(symbol-variable)',
+					v.id
+				);
+				item.contextValue = 'variable';
+				return item;
+			});
+			// Add "New Variable" button
+			const addItem = new SidebarItem(
+				'Add Variable',
+				'',
+				vscode.TreeItemCollapsibleState.None,
+				'postgirl.addVariable',
+				'$(add)'
+			);
+			return [...items, addItem];
 		} else if (element.label === 'Saved Headers') {
 			const savedHeaders = this.context.globalState.get<SavedHeader[]>('postgirl.savedHeaders', []);
 			return savedHeaders.map(h => 

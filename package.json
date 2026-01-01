@@ -54,6 +54,21 @@
         "command": "postgirl.clearSearch",
         "title": "Clear Search",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "postgirl.addVariable",
+        "title": "Add Variable",
+        "icon": "$(add)"
+      },
+      {
+        "command": "postgirl.editVariable",
+        "title": "Edit Variable",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "postgirl.deleteVariable",
+        "title": "Delete Variable",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -78,6 +93,16 @@
         {
           "command": "postgirl.deleteRequest",
           "when": "view == postgirlSidebar && viewItem == savedRequest",
+          "group": "inline"
+        },
+        {
+          "command": "postgirl.editVariable",
+          "when": "view == postgirlSidebar && viewItem == variable",
+          "group": "inline"
+        },
+        {
+          "command": "postgirl.deleteVariable",
+          "when": "view == postgirlSidebar && viewItem == variable",
           "group": "inline"
         }
       ]
