@@ -26,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	const openClientCommand = vscode.commands.registerCommand('postgirl.openRestClient', () => {
-		RestClientPanel.createOrShow(context.extensionUri, context);
+		RestClientPanel.createOrShow(context.extensionUri, context, undefined, true);
 	});
 
 	const refreshCommand = vscode.commands.registerCommand('postgirl.refreshSidebar', () => {
@@ -42,10 +42,25 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	const loadRequestCommand = vscode.commands.registerCommand('postgirl.loadRequest', (request: SavedRequest) => {
-		RestClientPanel.createOrShow(context.extensionUri, context, request);
+		RestClientPanel.createOrShow(context.extensionUri, context, request, false);
 	});
 
-	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand);
+	const searchRequestsCommand = vscode.commands.registerCommand('postgirl.searchRequests', async () => {
+		const searchTerm = await vscode.window.showInputBox({
+			prompt: 'Search saved requests by name, URL, or method',
+			placeHolder: 'Enter search term...',
+			value: ''
+		});
+		if (searchTerm !== undefined) {
+			sidebarProvider.setFilter(searchTerm);
+		}
+	});
+
+	const clearSearchCommand = vscode.commands.registerCommand('postgirl.clearSearch', () => {
+		sidebarProvider.clearFilter();
+	});
+
+	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand, searchRequestsCommand, clearSearchCommand);
 }
 
 export function deactivate() {}
@@ -53,11 +68,22 @@ export function deactivate() {}
 class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<SidebarItem | undefined | null | void> = new vscode.EventEmitter<SidebarItem | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<SidebarItem | undefined | null | void> = this._onDidChangeTreeData.event;
+	private searchFilter: string = '';
 
 	constructor(private context: vscode.ExtensionContext) {}
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire();
+	}
+
+	setFilter(filter: string): void {
+		this.searchFilter = filter.toLowerCase();
+		this.refresh();
+	}
+
+	clearFilter(): void {
+		this.searchFilter = '';
+		this.refresh();
 	}
 
 	getTreeItem(element: SidebarItem): vscode.TreeItem {
@@ -105,7 +131,14 @@ class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 			return items;
 		} else if (element.label === 'Saved Requests') {
 			const savedRequests = this.context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
-			return savedRequests.map(req => {
+			const filteredRequests = this.searchFilter
+				? savedRequests.filter(req =>
+					req.name.toLowerCase().includes(this.searchFilter) ||
+					req.url.toLowerCase().includes(this.searchFilter) ||
+					req.method.toLowerCase().includes(this.searchFilter)
+				)
+				: savedRequests;
+			return filteredRequests.map(req => {
 				const item = new SidebarItem(
 					req.name,
 					`${req.method} - ${req.url}`,
@@ -172,13 +205,15 @@ class RestClientPanel {
 	private _disposables: vscode.Disposable[] = [];
 	private _context: vscode.ExtensionContext;
 
-	public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext, savedRequest?: SavedRequest) {
+	public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext, savedRequest?: SavedRequest, clearForm: boolean = false) {
 		const column = vscode.window.activeTextEditor?.viewColumn;
 
 		if (RestClientPanel.currentPanel) {
 			RestClientPanel.currentPanel._panel.reveal(column);
 			if (savedRequest) {
 				RestClientPanel.currentPanel.loadSavedRequest(savedRequest);
+			} else if (clearForm) {
+				RestClientPanel.currentPanel.clearForm();
 			}
 			return;
 		}
@@ -394,6 +429,12 @@ class RestClientPanel {
 		this._panel.webview.postMessage({
 			command: 'loadRequest',
 			request: request
+		});
+	}
+
+	private clearForm() {
+		this._panel.webview.postMessage({
+			command: 'clearForm'
 		});
 	}
 
@@ -960,6 +1001,26 @@ class RestClientPanel {
 							headersContainer.appendChild(headerRow);
 						});
 					}
+					break;
+
+				case 'clearForm':
+					document.getElementById('url').value = '';
+					document.getElementById('method').value = 'GET';
+					document.getElementById('requestBody').value = '';
+					
+					const clearContainer = document.getElementById('headersContainer');
+					clearContainer.innerHTML = '';
+					const clearHeaderRow = document.createElement('div');
+					clearHeaderRow.className = 'header-row';
+					clearHeaderRow.innerHTML = \`
+						<input type="text" class="header-key" placeholder="Key" />
+						<input type="text" class="header-value" placeholder="Value" />
+						<button class="secondary" onclick="removeHeader(this)">Remove</button>
+					\`;
+					clearContainer.appendChild(clearHeaderRow);
+					
+					document.getElementById('responseSection').style.display = 'none';
+					document.getElementById('errorSection').style.display = 'none';
 					break;
 			}
 		});

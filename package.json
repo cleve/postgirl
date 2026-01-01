@@ -44,6 +44,16 @@
         "command": "postgirl.deleteRequest",
         "title": "Delete Request",
         "icon": "$(trash)"
+      },
+      {
+        "command": "postgirl.searchRequests",
+        "title": "Search Requests",
+        "icon": "$(search)"
+      },
+      {
+        "command": "postgirl.clearSearch",
+        "title": "Clear Search",
+        "icon": "$(clear-all)"
       }
     ],
     "menus": {
@@ -55,6 +65,11 @@
         },
         {
           "command": "postgirl.refreshSidebar",
+          "when": "view == postgirlSidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "postgirl.searchRequests",
           "when": "view == postgirlSidebar",
           "group": "navigation"
         }
