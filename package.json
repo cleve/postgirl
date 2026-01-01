@@ -2,7 +2,7 @@
   "name": "postgirl",
   "displayName": "postgirl",
   "description": "Secure rest client",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.107.0"
   },
