@@ -7,6 +7,7 @@ A secure and user-friendly REST client for Visual Studio Code.
 - **Full HTTP Method Support**: GET, POST, PUT, PATCH, DELETE
 - **Custom Headers**: Add, edit, and manage request headers with ease
 - **Persistent Header Storage**: Save your frequently used headers for quick access
+- **Request Storage**: Save complete requests (URL, method, headers, body) for later reuse
 - **Request Body Editor**: Built-in JSON body editor for POST/PUT/PATCH requests
 - **Response Viewer**: Detailed response information with tabbed interface
   - Response body with automatic JSON formatting
@@ -39,6 +40,14 @@ Enter your API endpoint URL, select the HTTP method, and configure headers as ne
 - Click **"Save Headers"** to persist your current headers
 - Click **"Load Saved Headers"** to restore previously saved headers
 - View saved headers in the sidebar under **"Saved Headers"**
+
+### Saving and Loading Requests
+
+- Click **"💾 Save Request"** to save the current request configuration
+- Enter a name for your request when prompted
+- Saved requests appear in the sidebar under **"Saved Requests"**
+- Click on any saved request to load it into the editor
+- Right-click (or click the trash icon) on a saved request to delete it
 
 ### Viewing Responses
 

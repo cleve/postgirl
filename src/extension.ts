@@ -7,6 +7,16 @@ interface SavedHeader {
 	value: string;
 }
 
+interface SavedRequest {
+	id: string;
+	name: string;
+	url: string;
+	method: string;
+	headers: SavedHeader[];
+	body?: string;
+	createdAt: string;
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Postgirl REST client is now active!');
 
@@ -23,7 +33,19 @@ export function activate(context: vscode.ExtensionContext) {
 		sidebarProvider.refresh();
 	});
 
-	context.subscriptions.push(openClientCommand, refreshCommand);
+	const deleteRequestCommand = vscode.commands.registerCommand('postgirl.deleteRequest', async (item: SidebarItem) => {
+		const requests = context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+		const filtered = requests.filter(r => r.id !== item.requestId);
+		await context.globalState.update('postgirl.savedRequests', filtered);
+		sidebarProvider.refresh();
+		vscode.window.showInformationMessage('Request deleted successfully!');
+	});
+
+	const loadRequestCommand = vscode.commands.registerCommand('postgirl.loadRequest', (request: SavedRequest) => {
+		RestClientPanel.createOrShow(context.extensionUri, context, request);
+	});
+
+	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand);
 }
 
 export function deactivate() {}
@@ -54,6 +76,19 @@ class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 				)
 			];
 
+			const savedRequests = this.context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+			if (savedRequests.length > 0) {
+				items.push(
+					new SidebarItem(
+						'Saved Requests',
+						`${savedRequests.length} request(s) saved`,
+						vscode.TreeItemCollapsibleState.Collapsed,
+						undefined,
+						'$(inbox)'
+					)
+				);
+			}
+
 			const savedHeaders = this.context.globalState.get<SavedHeader[]>('postgirl.savedHeaders', []);
 			if (savedHeaders.length > 0) {
 				items.push(
@@ -68,6 +103,25 @@ class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 			}
 
 			return items;
+		} else if (element.label === 'Saved Requests') {
+			const savedRequests = this.context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+			return savedRequests.map(req => {
+				const item = new SidebarItem(
+					req.name,
+					`${req.method} - ${req.url}`,
+					vscode.TreeItemCollapsibleState.None,
+					undefined,
+					'$(globe)',
+					req.id
+				);
+				item.contextValue = 'savedRequest';
+				item.command = {
+					command: 'postgirl.loadRequest',
+					title: 'Load Request',
+					arguments: [req]
+				};
+				return item;
+			});
 		} else if (element.label === 'Saved Headers') {
 			const savedHeaders = this.context.globalState.get<SavedHeader[]>('postgirl.savedHeaders', []);
 			return savedHeaders.map(h => 
@@ -85,15 +139,20 @@ class SidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
 }
 
 class SidebarItem extends vscode.TreeItem {
+	declare contextValue?: string;
+	requestId?: string;
+	
 	constructor(
 		public readonly label: string,
 		public description: string,
 		public readonly collapsibleState: vscode.TreeItemCollapsibleState,
 		private commandId?: string,
-		private icon?: string
+		private icon?: string,
+		requestId?: string
 	) {
 		super(label, collapsibleState);
 		this.description = description;
+		this.requestId = requestId;
 		if (commandId) {
 			this.command = {
 				command: commandId,
@@ -113,11 +172,14 @@ class RestClientPanel {
 	private _disposables: vscode.Disposable[] = [];
 	private _context: vscode.ExtensionContext;
 
-	public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
+	public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext, savedRequest?: SavedRequest) {
 		const column = vscode.window.activeTextEditor?.viewColumn;
 
 		if (RestClientPanel.currentPanel) {
 			RestClientPanel.currentPanel._panel.reveal(column);
+			if (savedRequest) {
+				RestClientPanel.currentPanel.loadSavedRequest(savedRequest);
+			}
 			return;
 		}
 
@@ -132,15 +194,19 @@ class RestClientPanel {
 			}
 		);
 
-		RestClientPanel.currentPanel = new RestClientPanel(panel, extensionUri, context);
+		RestClientPanel.currentPanel = new RestClientPanel(panel, extensionUri, context, savedRequest);
 	}
 
-	private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
+	private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, context: vscode.ExtensionContext, savedRequest?: SavedRequest) {
 		this._panel = panel;
 		this._extensionUri = extensionUri;
 		this._context = context;
 
 		this._update();
+
+		if (savedRequest) {
+			setTimeout(() => this.loadSavedRequest(savedRequest), 100);
+		}
 
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
@@ -158,6 +224,12 @@ class RestClientPanel {
 						break;
 					case 'exportResults':
 						await this.exportResults(message.data);
+						break;
+					case 'saveRequest':
+						await this.saveRequestWithPrompt(message.request);
+						break;
+					case 'showError':
+						vscode.window.showErrorMessage(message.message);
 						break;
 				}
 			},
@@ -276,6 +348,53 @@ class RestClientPanel {
 			await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
 			vscode.window.showInformationMessage('Results exported successfully!');
 		}
+	}
+
+	private async saveRequest(request: { name: string; url: string; method: string; headers: SavedHeader[]; body?: string }) {
+		const savedRequests = this._context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+		const newRequest: SavedRequest = {
+			id: Date.now().toString(),
+			name: request.name,
+			url: request.url,
+			method: request.method,
+			headers: request.headers,
+			body: request.body,
+			createdAt: new Date().toISOString()
+		};
+		savedRequests.push(newRequest);
+		await this._context.globalState.update('postgirl.savedRequests', savedRequests);
+		vscode.window.showInformationMessage(`Request "${request.name}" saved successfully!`);
+		vscode.commands.executeCommand('postgirl.refreshSidebar');
+	}
+
+	private async saveRequestWithPrompt(request: { url: string; method: string; headers: SavedHeader[]; body?: string }) {
+		const name = await vscode.window.showInputBox({
+			prompt: 'Enter a name for this request',
+			placeHolder: 'My API Request',
+			value: request.url,
+			validateInput: (value) => {
+				return value.trim() ? null : 'Name cannot be empty';
+			}
+		});
+
+		if (!name) {
+			return;
+		}
+
+		await this.saveRequest({
+			name: name,
+			url: request.url,
+			method: request.method,
+			headers: request.headers,
+			body: request.body
+		});
+	}
+
+	private loadSavedRequest(request: SavedRequest) {
+		this._panel.webview.postMessage({
+			command: 'loadRequest',
+			request: request
+		});
 	}
 
 	public dispose() {
@@ -549,6 +668,10 @@ class RestClientPanel {
 				<label>Request Body (JSON)</label>
 				<textarea id="requestBody" placeholder='{"key": "value"}'></textarea>
 			</div>
+
+			<div class="header-actions">
+				<button onclick="saveCurrentRequest()">💾 Save Request</button>
+			</div>
 		</div>
 
 		<div id="responseSection" class="response-section" style="display: none;">
@@ -686,6 +809,35 @@ class RestClientPanel {
 			}
 		}
 
+		function saveCurrentRequest() {
+			try {
+				const url = document.getElementById('url').value.trim();
+				const method = document.getElementById('method').value;
+				const body = document.getElementById('requestBody').value.trim();
+				const headers = getHeaders();
+
+				if (!url) {
+					vscode.postMessage({
+						command: 'showError',
+						message: 'Please enter a URL before saving'
+					});
+					return;
+				}
+
+				vscode.postMessage({
+					command: 'saveRequest',
+					request: {
+						url: url,
+						method: method,
+						headers: headers,
+						body: body || undefined
+					}
+				});
+			} catch (error) {
+				console.error('Error saving request:', error);
+			}
+		}
+
 		function switchTab(tabName) {
 			const tabs = document.querySelectorAll('.tab');
 			const tabContents = document.querySelectorAll('.tab-content');
@@ -775,6 +927,37 @@ class RestClientPanel {
 								<button class="secondary" onclick="removeHeader(this)">Remove</button>
 							\`;
 							container.appendChild(headerRow);
+						});
+					}
+					break;
+
+				case 'loadRequest':
+					document.getElementById('url').value = message.request.url;
+					document.getElementById('method').value = message.request.method;
+					document.getElementById('requestBody').value = message.request.body || '';
+					
+					const headersContainer = document.getElementById('headersContainer');
+					headersContainer.innerHTML = '';
+					
+					if (message.request.headers.length === 0) {
+						const headerRow = document.createElement('div');
+						headerRow.className = 'header-row';
+						headerRow.innerHTML = \`
+							<input type="text" class="header-key" placeholder="Key" />
+							<input type="text" class="header-value" placeholder="Value" />
+							<button class="secondary" onclick="removeHeader(this)">Remove</button>
+						\`;
+						headersContainer.appendChild(headerRow);
+					} else {
+						message.request.headers.forEach(header => {
+							const headerRow = document.createElement('div');
+							headerRow.className = 'header-row';
+							headerRow.innerHTML = \`
+								<input type="text" class="header-key" placeholder="Key" value="\${header.key}" />
+								<input type="text" class="header-value" placeholder="Value" value="\${header.value}" />
+								<button class="secondary" onclick="removeHeader(this)">Remove</button>
+							\`;
+							headersContainer.appendChild(headerRow);
 						});
 					}
 					break;

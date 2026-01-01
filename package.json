@@ -39,6 +39,11 @@
         "command": "postgirl.refreshSidebar",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "postgirl.deleteRequest",
+        "title": "Delete Request",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -52,6 +57,13 @@
           "command": "postgirl.refreshSidebar",
           "when": "view == postgirlSidebar",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "postgirl.deleteRequest",
+          "when": "view == postgirlSidebar && viewItem == savedRequest",
+          "group": "inline"
         }
       ]
     }
