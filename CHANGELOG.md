@@ -4,6 +4,11 @@ All notable changes to the "postgirl" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.0.1 [01-02-2026]
+
+### Fixed
+- Fixed variable loading functionality that was not working due to malformed switch statement
+
 ## 1.0.0 [01-01-2026]
 
 - Initial release

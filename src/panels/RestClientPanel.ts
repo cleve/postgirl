@@ -62,9 +62,11 @@ export class RestClientPanel {
 						break;
 					case 'loadHeaders':
 						await this.loadHeaders();
-						break;				case 'loadVariables':
+					break;
+				case 'loadVariables':
 					await this.loadVariables();
-					break;					case 'exportResults':
+					break;
+				case 'exportResults':
 						await this.exportResults(message.data);
 						break;
 					case 'saveRequest':
