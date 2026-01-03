@@ -18,3 +18,11 @@ export interface Variable {
 	name: string;
 	value: string;
 }
+
+export interface SessionExport {
+	version: string;
+	exportedAt: string;
+	savedRequests: SavedRequest[];
+	variables: Variable[];
+	savedHeaders: SavedHeader[];
+}

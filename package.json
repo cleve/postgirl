@@ -2,7 +2,7 @@
   "name": "postgirl",
   "displayName": "postgirl",
   "description": "Secure rest client",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/cleve/postgirl.git"
@@ -73,6 +73,16 @@
         "command": "postgirl.deleteVariable",
         "title": "Delete Variable",
         "icon": "$(trash)"
+      },
+      {
+        "command": "postgirl.exportSession",
+        "title": "Export Session",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "postgirl.importSession",
+        "title": "Import Session",
+        "icon": "$(cloud-upload)"
       }
     ],
     "menus": {
@@ -91,6 +101,16 @@
           "command": "postgirl.searchRequests",
           "when": "view == postgirlSidebar",
           "group": "navigation"
+        },
+        {
+          "command": "postgirl.exportSession",
+          "when": "view == postgirlSidebar",
+          "group": "navigation@2"
+        },
+        {
+          "command": "postgirl.importSession",
+          "when": "view == postgirlSidebar",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [

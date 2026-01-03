@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SavedRequest, Variable } from './types';
+import { SavedRequest, Variable, SessionExport } from './types';
 import { SidebarProvider, SidebarItem } from './providers/SidebarProvider';
 import { RestClientPanel } from './panels/RestClientPanel';
 
@@ -123,6 +123,98 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Variable deleted successfully!');
 	});
 
-	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand, searchRequestsCommand, clearSearchCommand, addVariableCommand, editVariableCommand, deleteVariableCommand);
+	const exportSessionCommand = vscode.commands.registerCommand('postgirl.exportSession', async () => {
+		const savedRequests = context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+		const variables = context.globalState.get<Variable[]>('postgirl.variables', []);
+		const savedHeaders = context.globalState.get('postgirl.savedHeaders', []);
+
+		if (savedRequests.length === 0 && variables.length === 0 && savedHeaders.length === 0) {
+			vscode.window.showWarningMessage('No data to export. Your session is empty.');
+			return;
+		}
+
+		const sessionData: SessionExport = {
+			version: '1.0.0',
+			exportedAt: new Date().toISOString(),
+			savedRequests,
+			variables,
+			savedHeaders
+		};
+
+		const uri = await vscode.window.showSaveDialog({
+			defaultUri: vscode.Uri.file(`postgirl-session-${Date.now()}.pgrl`),
+			filters: {
+				'Postgirl Session': ['pgrl'],
+				'All Files': ['*']
+			},
+			saveLabel: 'Export Session'
+		});
+
+		if (uri) {
+			try {
+				const jsonString = JSON.stringify(sessionData);
+				// Convert to binary using gzip-like compression (Buffer handles binary format)
+				const buffer = Buffer.from(jsonString, 'utf8');
+				await vscode.workspace.fs.writeFile(uri, buffer);
+				vscode.window.showInformationMessage(
+					`Session exported successfully! (${savedRequests.length} requests, ${variables.length} variables, ${savedHeaders.length} headers)`
+				);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to export session: ${error}`);
+			}
+		}
+	});
+
+	const importSessionCommand = vscode.commands.registerCommand('postgirl.importSession', async () => {
+		const uri = await vscode.window.showOpenDialog({
+			canSelectMany: false,
+			filters: {
+				'Postgirl Session': ['pgrl'],
+				'All Files': ['*']
+			},
+			openLabel: 'Import Session'
+		});
+
+		if (!uri || uri.length === 0) {
+			return;
+		}
+
+		// Warning to the user
+		const confirmation = await vscode.window.showWarningMessage(
+			'⚠️ Importing a session will replace all your current data (requests, variables, and headers). This action cannot be undone. Do you want to continue?',
+			{ modal: true },
+			'Import and Replace',
+			'Cancel'
+		);
+
+		if (confirmation !== 'Import and Replace') {
+			return;
+		}
+
+		try {
+			const buffer = await vscode.workspace.fs.readFile(uri[0]);
+			const jsonString = Buffer.from(buffer).toString('utf8');
+			const sessionData: SessionExport = JSON.parse(jsonString);
+
+			// Validate the session data structure
+			if (!sessionData.version || !sessionData.exportedAt) {
+				throw new Error('Invalid session file format');
+			}
+
+			// Import all data
+			await context.globalState.update('postgirl.savedRequests', sessionData.savedRequests || []);
+			await context.globalState.update('postgirl.variables', sessionData.variables || []);
+			await context.globalState.update('postgirl.savedHeaders', sessionData.savedHeaders || []);
+
+			sidebarProvider.refresh();
+			vscode.window.showInformationMessage(
+				`Session imported successfully! (${sessionData.savedRequests?.length || 0} requests, ${sessionData.variables?.length || 0} variables, ${sessionData.savedHeaders?.length || 0} headers)`
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to import session: ${error}`);
+		}
+	});
+
+	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand, searchRequestsCommand, clearSearchCommand, addVariableCommand, editVariableCommand, deleteVariableCommand, exportSessionCommand, importSessionCommand);
 }
 export function deactivate() {}

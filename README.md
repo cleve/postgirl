@@ -15,6 +15,8 @@ A secure and user-friendly REST client for Visual Studio Code.
   - Request information
   - Status codes with color coding
   - Response time and size metrics
+- **Variables System**: Create and manage variables for use across requests (e.g., `{{baseUrl}}`, `{{token}}`)
+- **Session Export/Import**: Export your entire session (requests, variables, headers) to a binary file and import it later
 - **Export Functionality**: Export request/response data to JSON files
 - **Sidebar Integration**: Quick access from the VS Code Activity Bar
 
@@ -60,4 +62,25 @@ Responses are displayed in a tabbed interface showing:
 ### Exporting Results
 
 Click **"Export Results"** to save the complete request and response data as a JSON file.
+
+### Managing Variables
+
+- Click **"Add Variable"** in the sidebar to create a new variable
+- Enter a variable name (without `{{}}`) and its value
+- Use variables in your URLs or headers by wrapping them: `{{variableName}}`
+- Variables are automatically replaced when making requests
+- Edit or delete variables from the sidebar
+
+### Session Export and Import
+
+**Export Session:**
+- Click the cloud-download icon in the Postgirl sidebar
+- Choose a location to save your session file (`.pgrl` format)
+- The file contains all your saved requests, variables, and headers in a compact binary format
+
+**Import Session:**
+- Click the cloud-upload icon in the Postgirl sidebar
+- Select a previously exported `.pgrl` file
+- **Warning**: Importing will replace your current session data
+- Confirm the import to restore all requests, variables, and headers
 
