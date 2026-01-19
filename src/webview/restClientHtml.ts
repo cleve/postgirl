@@ -354,7 +354,9 @@ export function getRestClientHtml(): string {
 		function replaceVariables(text, vars) {
 			let result = text;
 			for (const [key, value] of Object.entries(vars)) {
-				const regex = new RegExp('\\{\\{' + key + '\\}\\}', 'g');
+				// Escape special regex characters in the variable name
+				const escapedKey = key.replace(/[-\/\\\\^$*+?.()|[\\]{}]/g, '\\\\$&');
+				const regex = new RegExp('\\\\{\\\\{' + escapedKey + '\\\\}\\\\}', 'g');
 				result = result.replace(regex, value);
 			}
 			return result;
@@ -366,8 +368,15 @@ export function getRestClientHtml(): string {
 			let body = document.getElementById('requestBody').value.trim();
 			const headers = getHeaders();
 
+			// Log available variables for debugging
+			console.log('[Postgirl] Available variables:', variables);
+
 			// Replace variables in URL
+			const originalUrl = url;
 			url = replaceVariables(url, variables);
+			if (originalUrl !== url) {
+				console.log('[Postgirl] URL after variable replacement:', url);
+			}
 			
 			// Replace variables in headers
 			headers.forEach(header => {
@@ -554,6 +563,7 @@ export function getRestClientHtml(): string {
 
 				case 'variablesLoaded':
 					variables = message.variables || {};
+					console.log('[Postgirl] Variables loaded:', variables);
 					break;
 
 				case 'loadRequest':

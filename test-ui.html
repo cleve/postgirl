@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variable Replacement Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .result {
+            background: #f0f0f0;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+        }
+        .var-list {
+            background: #e8f4f8;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Variable Replacement Test</h1>
+    
+    <div class="section">
+        <h2>Define Variables</h2>
+        <p>Add variables that will be used for replacement:</p>
+        <div id="variablesContainer"></div>
+        <button onclick="addVariable()">Add Variable</button>
+        
+        <div class="var-list" id="currentVariables">
+            <strong>Current Variables:</strong> (none)
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Test Variable Replacement</h2>
+        <label>Input Text (use {{variable-name}} syntax):</label>
+        <textarea id="testInput" rows="4" placeholder="Example: hello {{my-var}} or {{baseUrl}}/api/users">hello {{my-var}}</textarea>
+        
+        <button onclick="testReplacement()">Test Replacement</button>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <div class="section">
+        <h2>Example Test Cases</h2>
+        <button onclick="loadExample(1)">Simple: "hello {{my-var}}"</button>
+        <button onclick="loadExample(2)">URL: "{{baseUrl}}/users"</button>
+        <button onclick="loadExample(3)">Header: "Bearer {{api-key}}"</button>
+        <button onclick="loadExample(4)">Multiple: "{{a}}-{{b}}-{{c}}"</button>
+    </div>
+
+    <script>
+        // Variable storage
+        let variables = {};
+
+        // OLD VERSION (potentially buggy)
+        function replaceVariablesOld(text, vars) {
+            let result = text;
+            for (const [key, value] of Object.entries(vars)) {
+                const regex = new RegExp('\\{\\{' + key + '\\}\\}', 'g');
+                result = result.replace(regex, value);
+            }
+            return result;
+        }
+
+        // NEW VERSION (with fix)
+        function replaceVariables(text, vars) {
+            let result = text;
+            for (const [key, value] of Object.entries(vars)) {
+                // Escape special regex characters in the variable name
+                const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp('\\{\\{' + escapedKey + '\\}\\}', 'g');
+                result = result.replace(regex, value);
+            }
+            return result;
+        }
+
+        function addVariable() {
+            const container = document.getElementById('variablesContainer');
+            const div = document.createElement('div');
+            div.style.marginBottom = '10px';
+            div.innerHTML = `
+                <input type="text" placeholder="Variable name (e.g., my-var)" class="var-name" style="width: 45%; display: inline-block;" />
+                <input type="text" placeholder="Value" class="var-value" style="width: 45%; display: inline-block;" />
+                <button onclick="this.parentElement.remove(); updateVariables();" style="width: 8%;">✕</button>
+            `;
+            container.appendChild(div);
+            
+            // Add event listeners to update variables on change
+            div.querySelector('.var-name').addEventListener('input', updateVariables);
+            div.querySelector('.var-value').addEventListener('input', updateVariables);
+        }
+
+        function updateVariables() {
+            variables = {};
+            const names = document.querySelectorAll('.var-name');
+            const values = document.querySelectorAll('.var-value');
+            
+            names.forEach((nameInput, index) => {
+                const name = nameInput.value.trim();
+                const value = values[index].value;
+                if (name) {
+                    variables[name] = value;
+                }
+            });
+
+            // Update display
+            const display = document.getElementById('currentVariables');
+            if (Object.keys(variables).length === 0) {
+                display.innerHTML = '<strong>Current Variables:</strong> (none)';
+            } else {
+                const varList = Object.entries(variables)
+                    .map(([k, v]) => `<code>{{${k}}}</code> = "${v}"`)
+                    .join(', ');
+                display.innerHTML = `<strong>Current Variables:</strong> ${varList}`;
+            }
+        }
+
+        function testReplacement() {
+            const input = document.getElementById('testInput').value;
+            const resultOld = replaceVariablesOld(input, variables);
+            const resultNew = replaceVariables(input, variables);
+            
+            const resultDiv = document.getElementById('result');
+            let html = `<strong>Input:</strong>\n${input}\n\n`;
+            html += `<strong>Output (NEW fixed version):</strong>\n${resultNew}\n\n`;
+            html += `<strong>Output (OLD version):</strong>\n${resultOld}`;
+            
+            if (resultNew !== resultOld) {
+                html += `\n\n⚠️ <span style="color: red;">DIFFERENCE DETECTED!</span> The old version has a bug with your variable names.`;
+            } else if (input !== resultNew) {
+                html += `\n\n✅ <span style="color: green;">Variables replaced successfully!</span>`;
+            } else {
+                html += `\n\n⚠️ No variables were replaced. Check that:\n- Variables are defined\n- Variable names match exactly\n- Syntax is {{variable-name}}`;
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+
+        function loadExample(num) {
+            // Clear existing variables
+            document.getElementById('variablesContainer').innerHTML = '';
+            
+            switch(num) {
+                case 1:
+                    addVariableWithValue('my-var', 'world');
+                    document.getElementById('testInput').value = 'hello {{my-var}}';
+                    break;
+                case 2:
+                    addVariableWithValue('baseUrl', 'https://api.example.com');
+                    document.getElementById('testInput').value = '{{baseUrl}}/users';
+                    break;
+                case 3:
+                    addVariableWithValue('api-key', 'secret123');
+                    document.getElementById('testInput').value = 'Authorization: Bearer {{api-key}}';
+                    break;
+                case 4:
+                    addVariableWithValue('a', 'foo');
+                    addVariableWithValue('b', 'bar');
+                    addVariableWithValue('c', 'baz');
+                    document.getElementById('testInput').value = '{{a}}-{{b}}-{{c}}';
+                    break;
+            }
+            
+            testReplacement();
+        }
+
+        function addVariableWithValue(name, value) {
+            addVariable();
+            const inputs = document.getElementById('variablesContainer').lastChild;
+            inputs.querySelector('.var-name').value = name;
+            inputs.querySelector('.var-value').value = value;
+            updateVariables();
+        }
+
+        // Initialize with one example
+        loadExample(1);
+    </script>
+</body>
+</html>
