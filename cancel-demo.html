@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancel Button Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .demo-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .url-section {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            align-items: center;
+        }
+        select, input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        select {
+            min-width: 120px;
+        }
+        input {
+            flex: 1;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .send-btn {
+            background: #007acc;
+            color: white;
+        }
+        .send-btn:hover:not(:disabled) {
+            background: #005a9e;
+        }
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .cancel-btn {
+            background: #f0f0f0;
+            color: #333;
+            display: none;
+        }
+        .cancel-btn:hover {
+            background: #e0e0e0;
+        }
+        .cancel-btn.visible {
+            display: inline-block;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.visible {
+            display: block;
+        }
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .status.cancelled {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .info {
+            background: #f5f5f5;
+            padding: 20px;
+            margin-top: 30px;
+            border-left: 4px solid #007acc;
+            border-radius: 4px;
+        }
+        .info h3 {
+            margin-top: 0;
+            color: #007acc;
+        }
+        .info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .info li {
+            margin: 8px 0;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🚫 Cancel Button Demo</h1>
+        <p>This demonstrates the new cancel button functionality for HTTP requests.</p>
+        
+        <div class="url-section">
+            <select id="method">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+            </select>
+            <input type="text" id="url" value="https://httpbin.org/delay/5" placeholder="https://api.example.com/endpoint" />
+            <button id="sendBtn" class="send-btn">Send</button>
+            <button id="cancelBtn" class="cancel-btn">Cancel</button>
+        </div>
+
+        <div id="status" class="status">
+            <strong>Status:</strong> <span id="statusText">Ready</span>
+        </div>
+    </div>
+
+    <div class="info">
+        <h3>How to Use</h3>
+        <ul>
+            <li>Click <code>Send</code> to start a request (default URL has 5 second delay)</li>
+            <li>The <code>Cancel</code> button appears while the request is in progress</li>
+            <li>Click <code>Cancel</code> to abort the request before it completes</li>
+            <li>The request immediately stops and UI resets</li>
+        </ul>
+
+        <h3>Test Scenarios</h3>
+        <ul>
+            <li><code>https://httpbin.org/delay/10</code> - 10 second delay (easy to cancel)</li>
+            <li><code>http://10.255.255.1</code> - Unresponsive host (will timeout, use cancel)</li>
+            <li><code>https://httpbin.org/drip?duration=20&numbytes=1000</code> - Slow streaming response</li>
+        </ul>
+
+        <h3>Visual States</h3>
+        <ul>
+            <li><strong>Ready:</strong> Send button enabled, Cancel hidden</li>
+            <li><strong>Loading:</strong> Send button disabled ("Sending..."), Cancel visible</li>
+            <li><strong>Success:</strong> Both buttons reset to ready state</li>
+            <li><strong>Cancelled:</strong> Shows "Request cancelled by user" message</li>
+        </ul>
+    </div>
+
+    <script>
+        let currentRequestId = null;
+        let simulatedRequest = null;
+
+        const sendBtn = document.getElementById('sendBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const status = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+
+        sendBtn.addEventListener('click', async () => {
+            const url = document.getElementById('url').value;
+            const method = document.getElementById('method').value;
+
+            // Generate request ID
+            currentRequestId = Date.now().toString();
+
+            // Update UI to loading state
+            sendBtn.textContent = 'Sending...';
+            sendBtn.disabled = true;
+            cancelBtn.classList.add('visible');
+            
+            status.className = 'status visible loading';
+            statusText.textContent = `${method} ${url} - In Progress...`;
+
+            try {
+                // Create abort controller for cancellation
+                const controller = new AbortController();
+                simulatedRequest = controller;
+
+                // Make actual fetch request
+                const response = await fetch(url, {
+                    method: method,
+                    signal: controller.signal
+                });
+
+                // Success
+                status.className = 'status visible success';
+                statusText.textContent = `✓ ${response.status} ${response.statusText} - Completed`;
+                
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    // Cancelled
+                    status.className = 'status visible cancelled';
+                    statusText.textContent = '⚠ Request cancelled by user';
+                } else {
+                    // Error
+                    status.className = 'status visible error';
+                    statusText.textContent = `✗ Error: ${error.message}`;
+                }
+            } finally {
+                // Reset UI
+                sendBtn.textContent = 'Send';
+                sendBtn.disabled = false;
+                cancelBtn.classList.remove('visible');
+                currentRequestId = null;
+                simulatedRequest = null;
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            if (simulatedRequest) {
+                // Abort the request
+                simulatedRequest.abort();
+                
+                // UI will be reset in the finally block of the fetch
+                console.log('Request cancelled:', currentRequestId);
+            }
+        });
+    </script>
+</body>
+</html>

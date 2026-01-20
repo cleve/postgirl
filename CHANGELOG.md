@@ -4,6 +4,21 @@ All notable changes to the "postgirl" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.2.1 [01-19-2026]
+
+### Fixed
+- Fixed saved requests not loading when clicked from sidebar (added timing delay for webview readiness)
+
+## 1.2.0 [01-19-2026]
+
+### Added
+- Request cancellation: Cancel button appears during active requests to abort long-running or stuck operations
+- Console logging for variable replacement debugging
+
+### Fixed
+- Variable replacement now properly escapes special regex characters in variable names (fixes issues with variables containing `.`, `*`, `+`, etc.)
+- Improved variable placeholder handling for more robust text replacement
+
 ## 1.1.0 [01-02-2026]
 
 ### Added

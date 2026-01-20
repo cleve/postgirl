@@ -231,6 +231,7 @@ export function getRestClientHtml(): string {
 				</select>
 				<input type="text" id="url" placeholder="https://api.example.com/endpoint" />
 				<button id="sendBtn">Send</button>
+				<button id="cancelBtn" class="secondary" style="display: none;">Cancel</button>
 			</div>
 
 			<div class="headers-section">
@@ -310,6 +311,7 @@ export function getRestClientHtml(): string {
 		let currentResponse = null;
 		let currentRequest = null;
 		let variables = {}; // Variables loaded from sidebar
+		let currentRequestId = null; // Track active request for cancellation
 
 		function addHeader() {
 			const container = document.getElementById('headersContainer');
@@ -399,14 +401,35 @@ export function getRestClientHtml(): string {
 			document.getElementById('responseSection').style.display = 'none';
 			document.getElementById('sendBtn').textContent = 'Sending...';
 			document.getElementById('sendBtn').disabled = true;
+			document.getElementById('cancelBtn').style.display = 'inline-block';
+
+			// Generate unique request ID
+			currentRequestId = Date.now().toString();
 
 			vscode.postMessage({
 				command: 'makeRequest',
+				requestId: currentRequestId,
 				url: url,
 				method: method,
 				headers: headers,
 				body: body || undefined
 			});
+		}
+
+		function cancelRequest() {
+			if (currentRequestId) {
+				vscode.postMessage({
+					command: 'cancelRequest',
+					requestId: currentRequestId
+				});
+				document.getElementById('sendBtn').textContent = 'Send';
+				document.getElementById('sendBtn').disabled = false;
+				document.getElementById('cancelBtn').style.display = 'none';
+				currentRequestId = null;
+				
+				document.getElementById('errorSection').style.display = 'block';
+				document.getElementById('errorMessage').textContent = 'Request cancelled by user';
+			}
 		}
 
 		function saveHeaders() {
@@ -503,6 +526,8 @@ export function getRestClientHtml(): string {
 				case 'requestComplete':
 					document.getElementById('sendBtn').textContent = 'Send';
 					document.getElementById('sendBtn').disabled = false;
+					document.getElementById('cancelBtn').style.display = 'none';
+					currentRequestId = null;
 
 					if (message.success) {
 						currentResponse = message.response;
@@ -621,6 +646,7 @@ export function getRestClientHtml(): string {
 
 		// Event listeners
 		document.getElementById('sendBtn').addEventListener('click', sendRequest);
+		document.getElementById('cancelBtn').addEventListener('click', cancelRequest);
 		document.getElementById('addHeaderBtn').addEventListener('click', addHeader);
 		document.getElementById('saveHeadersBtn').addEventListener('click', saveHeaders);
 		document.getElementById('loadHeadersBtn').addEventListener('click', loadHeaders);

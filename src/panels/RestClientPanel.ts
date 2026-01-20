@@ -10,6 +10,7 @@ export class RestClientPanel {
 	private readonly _extensionUri: vscode.Uri;
 	private _disposables: vscode.Disposable[] = [];
 	private _context: vscode.ExtensionContext;
+	private _activeRequests: Map<string, http.ClientRequest> = new Map();
 
 	public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext, savedRequest?: SavedRequest, clearForm: boolean = false) {
 		const column = vscode.window.activeTextEditor?.viewColumn;
@@ -17,7 +18,10 @@ export class RestClientPanel {
 		if (RestClientPanel.currentPanel) {
 			RestClientPanel.currentPanel._panel.reveal(column);
 			if (savedRequest) {
-				RestClientPanel.currentPanel.loadSavedRequest(savedRequest);
+				// Add small delay to ensure webview is ready after reveal
+				setTimeout(() => {
+					RestClientPanel.currentPanel?.loadSavedRequest(savedRequest);
+				}, 50);
 			} else if (clearForm) {
 				RestClientPanel.currentPanel.clearForm();
 			}
@@ -55,7 +59,10 @@ export class RestClientPanel {
 			async (message) => {
 				switch (message.command) {
 					case 'makeRequest':
-						await this.handleRequest(message.url, message.method, message.headers, message.body);
+					await this.handleRequest(message.requestId, message.url, message.method, message.headers, message.body);
+					break;
+				case 'cancelRequest':
+					this.cancelRequest(message.requestId);
 						break;
 					case 'saveHeaders':
 						await this.saveHeaders(message.headers);
@@ -82,7 +89,7 @@ export class RestClientPanel {
 		);
 	}
 
-	private async handleRequest(url: string, method: string, headers: SavedHeader[], body?: string) {
+	private async handleRequest(requestId: string, url: string, method: string, headers: SavedHeader[], body?: string) {
 		try {
 			const parsedUrl = new URL(url);
 			const isHttps = parsedUrl.protocol === 'https:';
@@ -121,6 +128,8 @@ export class RestClientPanel {
 
 					res.on('end', () => {
 						const duration = Date.now() - startTime;
+						// Clean up request from active requests
+						this._activeRequests.delete(requestId);
 						resolve({
 							statusCode: res.statusCode || 0,
 							statusMessage: res.statusMessage || '',
@@ -132,8 +141,13 @@ export class RestClientPanel {
 				});
 
 				req.on('error', (error) => {
+					// Clean up request from active requests
+					this._activeRequests.delete(requestId);
 					reject(error);
 				});
+
+				// Store the request so it can be cancelled
+				this._activeRequests.set(requestId, req);
 
 				if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
 					req.write(body);
@@ -162,6 +176,15 @@ export class RestClientPanel {
 				success: false,
 				error: error.message
 			});
+		}
+	}
+
+	private cancelRequest(requestId: string) {
+		const req = this._activeRequests.get(requestId);
+		if (req) {
+			req.destroy();
+			this._activeRequests.delete(requestId);
+			vscode.window.showInformationMessage('Request cancelled');
 		}
 	}
 

@@ -5,6 +5,7 @@ A secure and user-friendly REST client for Visual Studio Code.
 ## Features
 
 - **Full HTTP Method Support**: GET, POST, PUT, PATCH, DELETE
+- **Request Cancellation**: Cancel long-running or stuck requests with the cancel button
 - **Custom Headers**: Add, edit, and manage request headers with ease
 - **Persistent Header Storage**: Save your frequently used headers for quick access
 - **Request Storage**: Save complete requests (URL, method, headers, body) for later reuse
@@ -35,6 +36,11 @@ A secure and user-friendly REST client for Visual Studio Code.
 ### Making Requests
 
 Enter your API endpoint URL, select the HTTP method, and configure headers as needed. For POST, PUT, and PATCH requests, you can add a JSON request body.
+
+**Cancelling Requests:**
+- When a request is in progress, a **Cancel** button appears next to the Send button
+- Click **Cancel** to immediately abort the request
+- Useful for long-running requests, timeouts, or unresponsive endpoints
 
 ### Managing Headers
 
@@ -67,8 +73,10 @@ Click **"Export Results"** to save the complete request and response data as a J
 
 - Click **"Add Variable"** in the sidebar to create a new variable
 - Enter a variable name (without `{{}}`) and its value
-- Use variables in your URLs or headers by wrapping them: `{{variableName}}`
+- Use variables in your URLs, headers, or body by wrapping them: `{{variableName}}`
+- Variables support special characters in names (e.g., `{{api.key}}`, `{{base-url}}`)
 - Variables are automatically replaced when making requests
+- Example: `https://{{baseUrl}}/api/users?token={{authToken}}`
 - Edit or delete variables from the sidebar
 
 ### Session Export and Import
