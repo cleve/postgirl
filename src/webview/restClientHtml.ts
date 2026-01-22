@@ -212,6 +212,23 @@ export function getRestClientHtml(): string {
 			margin-top: 0;
 			margin-bottom: 15px;
 		}
+
+		.json-toggle {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-bottom: 15px;
+		}
+
+		.json-toggle input[type="checkbox"] {
+			cursor: pointer;
+		}
+
+		.json-toggle label {
+			margin: 0;
+			cursor: pointer;
+			font-weight: normal;
+		}
 	</style>
 </head>
 <body>
@@ -251,6 +268,10 @@ export function getRestClientHtml(): string {
 			</div>
 
 			<div class="body-section">
+				<div class="json-toggle">
+					<input type="checkbox" id="jsonContentType" />
+					<label for="jsonContentType">Automatically add JSON Content-Type header</label>
+				</div>
 				<label>Request Body (JSON)</label>
 				<textarea id="requestBody" placeholder='{"key": "value"}'></textarea>
 			</div>
@@ -343,6 +364,8 @@ export function getRestClientHtml(): string {
 		function getHeaders() {
 			const headers = [];
 			const headerRows = document.querySelectorAll('#headersContainer .header-row');
+			const jsonContentTypeEnabled = document.getElementById('jsonContentType').checked;
+			
 			headerRows.forEach(row => {
 				const key = row.querySelector('.header-key').value.trim();
 				const value = row.querySelector('.header-value').value.trim();
@@ -350,6 +373,17 @@ export function getRestClientHtml(): string {
 					headers.push({ key, value });
 				}
 			});
+			
+			// Add Content-Type header if JSON option is enabled and not already present
+			if (jsonContentTypeEnabled) {
+				const hasContentType = headers.some(h => 
+					h.key.toLowerCase() === 'content-type'
+				);
+				if (!hasContentType) {
+					headers.push({ key: 'Content-Type', value: 'application/json' });
+				}
+			}
+			
 			return headers;
 		}
 
@@ -596,6 +630,12 @@ export function getRestClientHtml(): string {
 					document.getElementById('method').value = message.request.method;
 					document.getElementById('requestBody').value = message.request.body || '';
 					
+					// Check if Content-Type: application/json is in the headers
+					const hasJsonContentType = message.request.headers.some(h => 
+						h.key.toLowerCase() === 'content-type' && h.value.toLowerCase().includes('application/json')
+					);
+					document.getElementById('jsonContentType').checked = hasJsonContentType;
+					
 					const headersContainer = document.getElementById('headersContainer');
 					headersContainer.innerHTML = '';
 					
@@ -626,6 +666,7 @@ export function getRestClientHtml(): string {
 					document.getElementById('url').value = '';
 					document.getElementById('method').value = 'GET';
 					document.getElementById('requestBody').value = '';
+					document.getElementById('jsonContentType').checked = false;
 					
 					const clearContainer = document.getElementById('headersContainer');
 					clearContainer.innerHTML = '';

@@ -4,6 +4,13 @@ All notable changes to the "postgirl" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.3.0 [01-22-2026]
+
+### Added
+- JSON Content-Type toggle: New checkbox to automatically add `Content-Type: application/json` header
+- Smart header detection: Prevents duplicate Content-Type headers when manually added
+- State persistence: JSON toggle state is preserved when loading saved requests
+
 ## 1.2.1 [01-19-2026]
 
 ### Fixed
