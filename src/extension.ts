@@ -86,6 +86,10 @@ export function activate(context: vscode.ExtensionContext) {
 		variables.push(newVariable);
 		await context.globalState.update('postgirl.variables', variables);
 		sidebarProvider.refresh();
+		// Notify the webview to reload variables
+		if (RestClientPanel.currentPanel) {
+			RestClientPanel.currentPanel.reloadVariables();
+		}
 		vscode.window.showInformationMessage(`Variable "${name}" added successfully!`);
 	});
 
@@ -112,6 +116,10 @@ export function activate(context: vscode.ExtensionContext) {
 		variable.value = newValue.trim();
 		await context.globalState.update('postgirl.variables', variables);
 		sidebarProvider.refresh();
+		// Notify the webview to reload variables
+		if (RestClientPanel.currentPanel) {
+			RestClientPanel.currentPanel.reloadVariables();
+		}
 		vscode.window.showInformationMessage(`Variable "${variable.name}" updated!`);
 	});
 
@@ -120,6 +128,10 @@ export function activate(context: vscode.ExtensionContext) {
 		const filtered = variables.filter(v => v.id !== item.requestId);
 		await context.globalState.update('postgirl.variables', filtered);
 		sidebarProvider.refresh();
+		// Notify the webview to reload variables
+		if (RestClientPanel.currentPanel) {
+			RestClientPanel.currentPanel.reloadVariables();
+		}
 		vscode.window.showInformationMessage('Variable deleted successfully!');
 	});
 
@@ -207,6 +219,10 @@ export function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('postgirl.savedHeaders', sessionData.savedHeaders || []);
 
 			sidebarProvider.refresh();
+			// Notify the webview to reload variables
+			if (RestClientPanel.currentPanel) {
+				RestClientPanel.currentPanel.reloadVariables();
+			}
 			vscode.window.showInformationMessage(
 				`Session imported successfully! (${sessionData.savedRequests?.length || 0} requests, ${sessionData.variables?.length || 0} variables, ${sessionData.savedHeaders?.length || 0} headers)`
 			);

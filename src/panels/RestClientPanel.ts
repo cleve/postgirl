@@ -17,6 +17,8 @@ export class RestClientPanel {
 
 		if (RestClientPanel.currentPanel) {
 			RestClientPanel.currentPanel._panel.reveal(column);
+			// Reload variables to ensure they're up to date
+			RestClientPanel.currentPanel.loadVariables();
 			if (savedRequest) {
 				// Add small delay to ensure webview is ready after reveal
 				setTimeout(() => {
@@ -54,6 +56,17 @@ export class RestClientPanel {
 		}
 
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+
+		// Reload variables when panel becomes visible
+		this._panel.onDidChangeViewState(
+			e => {
+				if (this._panel.visible) {
+					this.loadVariables();
+				}
+			},
+			null,
+			this._disposables
+		);
 
 		this._panel.webview.onDidReceiveMessage(
 			async (message) => {
@@ -274,6 +287,11 @@ export class RestClientPanel {
 			command: 'loadRequest',
 			request: request
 		});
+	}
+
+	public async reloadVariables() {
+		// Public method to reload variables from external commands
+		await this.loadVariables();
 	}
 
 	private clearForm() {
