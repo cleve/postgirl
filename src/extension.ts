@@ -6,6 +6,125 @@ import { RestClientPanel } from './panels/RestClientPanel';
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Postgirl REST client is now active!');
 
+	const parsePostmanCollection = (data: any): { requests: SavedRequest[]; variables: Variable[] } => {
+		const requests: SavedRequest[] = [];
+		const variables: Variable[] = [];
+		const now = Date.now();
+
+		const normalizeHeaders = (headers: any[] | undefined): { key: string; value: string }[] => {
+			if (!Array.isArray(headers)) {
+				return [];
+			}
+			return headers
+				.filter(h => h && !h.disabled && (h.key || h.value))
+				.map(h => ({ key: String(h.key ?? '').trim(), value: String(h.value ?? '').trim() }))
+				.filter(h => h.key || h.value);
+		};
+
+		const encodeFormBody = (items: any[] | undefined): string | undefined => {
+			if (!Array.isArray(items)) {
+				return undefined;
+			}
+			const pairs = items
+				.filter(i => i && !i.disabled && i.key)
+				.map(i => `${encodeURIComponent(String(i.key))}=${encodeURIComponent(String(i.value ?? ''))}`);
+			return pairs.length ? pairs.join('&') : undefined;
+		};
+
+		const buildBody = (body: any): string | undefined => {
+			if (!body || typeof body !== 'object') {
+				return undefined;
+			}
+			switch (body.mode) {
+				case 'raw':
+					return typeof body.raw === 'string' ? body.raw : undefined;
+				case 'urlencoded':
+					return encodeFormBody(body.urlencoded);
+				case 'formdata':
+					return encodeFormBody(body.formdata);
+				default:
+					return undefined;
+			}
+		};
+
+		const buildUrl = (url: any): string => {
+			if (typeof url === 'string') {
+				return url;
+			}
+			if (!url || typeof url !== 'object') {
+				return '';
+			}
+			if (typeof url.raw === 'string') {
+				return url.raw;
+			}
+
+			const protocol = url.protocol ? `${url.protocol}://` : '';
+			const host = Array.isArray(url.host) ? url.host.join('.') : (url.host ?? '');
+			const port = url.port ? `:${url.port}` : '';
+			const path = Array.isArray(url.path) ? `/${url.path.join('/')}` : (url.path ? `/${url.path}` : '');
+			const query = Array.isArray(url.query)
+				? `?${url.query
+						.filter((q: any) => q && q.key)
+						.map((q: any) => `${encodeURIComponent(String(q.key))}=${encodeURIComponent(String(q.value ?? ''))}`)
+						.join('&')}`
+				: '';
+
+			return `${protocol}${host}${port}${path}${query}`;
+		};
+
+		const collectItems = (items: any[], parents: string[] = []) => {
+			if (!Array.isArray(items)) {
+				return;
+			}
+			items.forEach((item, index) => {
+				if (Array.isArray(item?.item)) {
+					collectItems(item.item, [...parents, item?.name || 'Folder']);
+					return;
+				}
+
+				const request = item?.request;
+				if (!request) {
+					return;
+				}
+
+				const nameParts = [...parents, item?.name || 'Request'];
+				const name = nameParts.join(' / ');
+				const url = buildUrl(request.url);
+				if (!url) {
+					return;
+				}
+				const headers = normalizeHeaders(request.header);
+				const body = buildBody(request.body);
+
+				requests.push({
+					id: `${now}-${requests.length}-${index}`,
+					name,
+					url,
+					method: request.method || 'GET',
+					headers,
+					body,
+					createdAt: new Date().toISOString()
+				});
+			});
+		};
+
+		collectItems(data?.item || []);
+
+		if (Array.isArray(data?.variable)) {
+			data.variable
+				.filter((v: any) => v && v.key)
+				.forEach((v: any, index: number) => {
+					variables.push({
+						id: `${now}-var-${index}`,
+						name: String(v.key).trim(),
+						value: String(v.value ?? '').trim()
+					});
+				});
+		}
+
+		return { requests, variables };
+	};
+
 	const sidebarProvider = new SidebarProvider(context);
 	context.subscriptions.push(
 		vscode.window.registerTreeDataProvider('postgirlSidebar', sidebarProvider)
@@ -231,6 +350,85 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand, searchRequestsCommand, clearSearchCommand, addVariableCommand, editVariableCommand, deleteVariableCommand, exportSessionCommand, importSessionCommand);
+	const importPostmanCommand = vscode.commands.registerCommand('postgirl.importPostman', async () => {
+		const uri = await vscode.window.showOpenDialog({
+			canSelectMany: false,
+			filters: {
+				'Postman Collection': ['json', 'postman_collection'],
+				'All Files': ['*']
+			},
+			openLabel: 'Import Postman Collection'
+		});
+
+		if (!uri || uri.length === 0) {
+			return;
+		}
+
+		try {
+			const buffer = await vscode.workspace.fs.readFile(uri[0]);
+			const jsonString = Buffer.from(buffer).toString('utf8');
+			const postmanData = JSON.parse(jsonString);
+			const { requests, variables } = parsePostmanCollection(postmanData);
+
+			if (requests.length === 0 && variables.length === 0) {
+				vscode.window.showWarningMessage('No requests or variables found in this Postman collection.');
+				return;
+			}
+
+			const importMode = await vscode.window.showQuickPick(
+				[
+					{
+						label: 'Append',
+						description: 'Keep existing requests and add imported ones'
+					},
+					{
+						label: 'Replace',
+						description: 'Overwrite existing requests and variables'
+					}
+				],
+				{
+					placeHolder: 'How should imported data be applied?'
+				}
+			);
+
+			if (!importMode) {
+				return;
+			}
+
+			const existingRequests = context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+			const existingVariables = context.globalState.get<Variable[]>('postgirl.variables', []);
+
+			let mergedRequests: SavedRequest[] = [];
+			let mergedVariables: Variable[] = [];
+
+			if (importMode.label === 'Replace') {
+				mergedRequests = requests;
+				mergedVariables = variables;
+			} else {
+				mergedRequests = [...existingRequests, ...requests];
+				const existingVariableNames = new Set(existingVariables.map(v => v.name));
+				const newVariables = variables.filter(v => !existingVariableNames.has(v.name));
+				mergedVariables = [...existingVariables, ...newVariables];
+			}
+
+			await context.globalState.update('postgirl.savedRequests', mergedRequests);
+			await context.globalState.update('postgirl.variables', mergedVariables);
+
+			sidebarProvider.refresh();
+			if (RestClientPanel.currentPanel) {
+				RestClientPanel.currentPanel.reloadVariables();
+			}
+
+			const requestCount = requests.length;
+			const variableCount = variables.length;
+			vscode.window.showInformationMessage(
+				`Postman import complete: ${requestCount} request(s), ${variableCount} variable(s).`
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to import Postman collection: ${error}`);
+		}
+	});
+
+	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand, searchRequestsCommand, clearSearchCommand, addVariableCommand, editVariableCommand, deleteVariableCommand, exportSessionCommand, importSessionCommand, importPostmanCommand);
 }
 export function deactivate() {}

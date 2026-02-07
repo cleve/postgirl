@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## 1.3.0 [01-22-2026]
 
+## 1.4.0 [02-06-2026]
+
+### Added
+- Postman collection import: Import requests and collection variables via sidebar action
+- Import modes: Append to existing data or replace saved requests and variables
+
 ### Added
 - JSON Content-Type toggle: New checkbox to automatically add `Content-Type: application/json` header
 - Smart header detection: Prevents duplicate Content-Type headers when manually added
