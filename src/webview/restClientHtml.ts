@@ -319,7 +319,7 @@ export function getRestClientHtml(): string {
 			</div>
 
 			<div class="export-section">
-				<button id="exportBtn">Export Results</button>
+				<button id="copyResultsBtn">Copy Results</button>
 			</div>
 		</div>
 
@@ -334,6 +334,7 @@ export function getRestClientHtml(): string {
 		let currentRequest = null;
 		let variables = {}; // Variables loaded from sidebar
 		let currentRequestId = null; // Track active request for cancellation
+		let editingRequest = null; // Track loaded saved request for in-place updates
 
 		function addHeader() {
 			const container = document.getElementById('headersContainer');
@@ -485,10 +486,10 @@ export function getRestClientHtml(): string {
 			});
 		}
 
-		function exportResults() {
+		function copyResults() {
 			if (currentResponse && currentRequest) {
 				vscode.postMessage({
-					command: 'exportResults',
+					command: 'copyResults',
 					data: {
 						request: currentRequest,
 						response: currentResponse,
@@ -577,6 +578,9 @@ export function getRestClientHtml(): string {
 				vscode.postMessage({
 					command: 'saveRequest',
 					request: {
+						id: editingRequest ? editingRequest.id : undefined,
+						name: editingRequest ? editingRequest.name : undefined,
+						collectionId: editingRequest ? editingRequest.collectionId : undefined,
 						url: url,
 						method: method,
 						headers: headers,
@@ -716,6 +720,12 @@ export function getRestClientHtml(): string {
 					break;
 
 				case 'loadRequest':
+					editingRequest = {
+						id: message.request.id,
+						name: message.request.name,
+						collectionId: message.request.collectionId
+					};
+					document.getElementById('saveRequestBtn').textContent = '✏️ Update Request';
 					document.getElementById('url').value = message.request.url;
 					document.getElementById('method').value = message.request.method;
 					document.getElementById('requestBody').value = message.request.body || '';
@@ -753,6 +763,8 @@ export function getRestClientHtml(): string {
 					break;
 
 				case 'clearForm':
+					editingRequest = null;
+					document.getElementById('saveRequestBtn').textContent = '💾 Save Request';
 					document.getElementById('url').value = '';
 					document.getElementById('method').value = 'GET';
 					document.getElementById('requestBody').value = '';
@@ -783,7 +795,7 @@ export function getRestClientHtml(): string {
 		document.getElementById('loadHeadersBtn').addEventListener('click', loadHeaders);
 		document.getElementById('saveRequestBtn').addEventListener('click', saveCurrentRequest);
 		document.getElementById('exportCurlBtn').addEventListener('click', exportRequestAsCurl);
-		document.getElementById('exportBtn').addEventListener('click', exportResults);
+		document.getElementById('copyResultsBtn').addEventListener('click', copyResults);
 		document.getElementById('url').addEventListener('keydown', handleRequestKeydown);
 		document.getElementById('method').addEventListener('keydown', handleRequestKeydown);
 		document.getElementById('headersContainer').addEventListener('keydown', handleRequestKeydown);

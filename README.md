@@ -61,12 +61,15 @@ Enter your API endpoint URL, select the HTTP method, and configure headers as ne
 - Choose a collection (or save as uncategorized) when prompted
 - Saved requests appear in the sidebar under **"Collections"**
 - Click on any saved request to load it into the editor
+- Loaded saved requests can be edited and updated in place with **"✏️ Update Request"**
 - Right-click (or click the trash icon) on a saved request to delete it
 
 ### Organizing with Collections
 
 - Click **"Add Collection"** to create a new collection
 - Rename or delete collections from the sidebar context actions
+- Drag saved requests between collections to reorganize them quickly
+- Drop an `http` or `https` URL onto a collection to save it there as a new GET request
 - Deleting a collection keeps its requests and moves them to **"Uncategorized"**
 - Postman imports map folder paths into collections automatically when available
 
@@ -80,7 +83,7 @@ Responses are displayed in a tabbed interface showing:
 
 ### Exporting Results
 
-Click **"Export Results"** to save the complete request and response data as a JSON file.
+Click **"Copy Results"** to copy the complete request and response data as formatted JSON for sharing.
 
 ### Managing Variables
 

@@ -4,6 +4,16 @@ All notable changes to the "postgirl" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.7.0 [03-13-2026]
+
+### Added
+- Collection drag and drop: move saved requests between collections directly from the sidebar tree
+- URL drop support: drop `http`/`https` links onto a collection to create saved GET requests
+- In-place request editing: loaded collection requests can be updated without creating duplicates
+
+### Changed
+- Response sharing flow: replaced file export with `Copy Results` to clipboard as formatted JSON
+
 ## 1.6.1 [03-12-2026]
 
 ### Fixed

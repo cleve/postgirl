@@ -86,8 +86,8 @@ export class RestClientPanel {
 				case 'loadVariables':
 					await this.loadVariables();
 					break;
-				case 'exportResults':
-						await this.exportResults(message.data);
+				case 'copyResults':
+						await this.copyResults(message.data);
 						break;
 				case 'exportRequestAsCurl':
 					await this.exportRequestAsCurl(message.curl);
@@ -229,20 +229,10 @@ export class RestClientPanel {
 		});
 	}
 
-	private async exportResults(data: any) {
-		const uri = await vscode.window.showSaveDialog({
-			defaultUri: vscode.Uri.file('request-response.json'),
-			filters: {
-				'JSON': ['json'],
-				'All Files': ['*']
-			}
-		});
-
-		if (uri) {
-			const content = JSON.stringify(data, null, 2);
-			await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
-			vscode.window.showInformationMessage('Results exported successfully!');
-		}
+	private async copyResults(data: any) {
+		const content = JSON.stringify(data, null, 2);
+		await vscode.env.clipboard.writeText(content);
+		vscode.window.showInformationMessage('Results copied to clipboard');
 	}
 
 	private async exportRequestAsCurl(curlCommand: string) {
@@ -265,6 +255,37 @@ export class RestClientPanel {
 		savedRequests.push(newRequest);
 		await this._context.globalState.update('postgirl.savedRequests', savedRequests);
 		vscode.window.showInformationMessage(`Request "${request.name}" saved successfully!`);
+		vscode.commands.executeCommand('postgirl.refreshSidebar');
+	}
+
+	private async updateRequest(request: {
+		id: string;
+		name: string;
+		url: string;
+		method: string;
+		headers: SavedHeader[];
+		body?: string;
+		collectionId?: string;
+	}) {
+		const savedRequests = this._context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+		const existingIndex = savedRequests.findIndex(r => r.id === request.id);
+		if (existingIndex === -1) {
+			vscode.window.showErrorMessage('Request not found. Save it as a new request instead.');
+			return;
+		}
+
+		savedRequests[existingIndex] = {
+			...savedRequests[existingIndex],
+			name: request.name,
+			url: request.url,
+			method: request.method,
+			headers: request.headers,
+			body: request.body,
+			collectionId: request.collectionId
+		};
+
+		await this._context.globalState.update('postgirl.savedRequests', savedRequests);
+		vscode.window.showInformationMessage(`Request "${request.name}" updated successfully!`);
 		vscode.commands.executeCommand('postgirl.refreshSidebar');
 	}
 
@@ -339,7 +360,41 @@ export class RestClientPanel {
 		return selectedCollection?.id;
 	}
 
-	private async saveRequestWithPrompt(request: { url: string; method: string; headers: SavedHeader[]; body?: string }) {
+	private async saveRequestWithPrompt(request: {
+		id?: string;
+		name?: string;
+		url: string;
+		method: string;
+		headers: SavedHeader[];
+		body?: string;
+		collectionId?: string;
+	}) {
+		if (request.id) {
+			const name = await vscode.window.showInputBox({
+				prompt: 'Edit request name',
+				placeHolder: 'My API Request',
+				value: request.name || request.url,
+				validateInput: (value) => {
+					return value.trim() ? null : 'Name cannot be empty';
+				}
+			});
+
+			if (!name) {
+				return;
+			}
+
+			await this.updateRequest({
+				id: request.id,
+				name,
+				url: request.url,
+				method: request.method,
+				headers: request.headers,
+				body: request.body,
+				collectionId: request.collectionId
+			});
+			return;
+		}
+
 		const name = await vscode.window.showInputBox({
 			prompt: 'Enter a name for this request',
 			placeHolder: 'My API Request',

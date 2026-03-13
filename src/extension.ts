@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { RequestCollection, SavedRequest, Variable, SessionExport } from './types';
-import { SidebarProvider, SidebarItem } from './providers/SidebarProvider';
+import { SidebarProvider, SidebarDragAndDropController, SidebarItem } from './providers/SidebarProvider';
 import { RestClientPanel } from './panels/RestClientPanel';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -153,8 +153,13 @@ export function activate(context: vscode.ExtensionContext) {
 	};
 
 	const sidebarProvider = new SidebarProvider(context);
+	const sidebarDragAndDropController = new SidebarDragAndDropController(context, sidebarProvider);
+	const sidebarView = vscode.window.createTreeView('postgirlSidebar', {
+		treeDataProvider: sidebarProvider,
+		dragAndDropController: sidebarDragAndDropController
+	});
 	context.subscriptions.push(
-		vscode.window.registerTreeDataProvider('postgirlSidebar', sidebarProvider)
+		sidebarView
 	);
 
 	const openClientCommand = vscode.commands.registerCommand('postgirl.openRestClient', () => {
