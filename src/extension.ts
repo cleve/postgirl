@@ -1,15 +1,17 @@
 import * as vscode from 'vscode';
-import { SavedRequest, Variable, SessionExport } from './types';
+import { RequestCollection, SavedRequest, Variable, SessionExport } from './types';
 import { SidebarProvider, SidebarItem } from './providers/SidebarProvider';
 import { RestClientPanel } from './panels/RestClientPanel';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Postgirl REST client is now active!');
 
-	const parsePostmanCollection = (data: any): { requests: SavedRequest[]; variables: Variable[] } => {
+	const parsePostmanCollection = (data: any): { requests: SavedRequest[]; variables: Variable[]; collections: RequestCollection[] } => {
 		const requests: SavedRequest[] = [];
 		const variables: Variable[] = [];
+		const collections: RequestCollection[] = [];
 		const now = Date.now();
+		const collectionIdsByName = new Map<string, string>();
 
 		const normalizeHeaders = (headers: any[] | undefined): { key: string; value: string }[] => {
 			if (!Array.isArray(headers)) {
@@ -72,13 +74,37 @@ export function activate(context: vscode.ExtensionContext) {
 			return `${protocol}${host}${port}${path}${query}`;
 		};
 
+		const ensureCollection = (parents: string[]): string | undefined => {
+			if (parents.length === 0) {
+				return undefined;
+			}
+
+			const collectionName = parents.join(' / ');
+			const existingCollectionId = collectionIdsByName.get(collectionName);
+			if (existingCollectionId) {
+				return existingCollectionId;
+			}
+
+			const collectionId = `${now}-collection-${collections.length}`;
+			collections.push({
+				id: collectionId,
+				name: collectionName,
+				createdAt: new Date().toISOString()
+			});
+			collectionIdsByName.set(collectionName, collectionId);
+			return collectionId;
+		};
+
 		const collectItems = (items: any[], parents: string[] = []) => {
 			if (!Array.isArray(items)) {
 				return;
 			}
 			items.forEach((item, index) => {
 				if (Array.isArray(item?.item)) {
-					collectItems(item.item, [...parents, item?.name || 'Folder']);
+					const folderName = String(item?.name || 'Folder').trim();
+					const nextParents = folderName ? [...parents, folderName] : parents;
+					ensureCollection(nextParents);
+					collectItems(item.item, nextParents);
 					return;
 				}
 
@@ -87,14 +113,14 @@ export function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 
-				const nameParts = [...parents, item?.name || 'Request'];
-				const name = nameParts.join(' / ');
+				const name = String(item?.name || 'Request').trim() || 'Request';
 				const url = buildUrl(request.url);
 				if (!url) {
 					return;
 				}
 				const headers = normalizeHeaders(request.header);
 				const body = buildBody(request.body);
+				const collectionId = ensureCollection(parents);
 
 				requests.push({
 					id: `${now}-${requests.length}-${index}`,
@@ -103,6 +129,7 @@ export function activate(context: vscode.ExtensionContext) {
 					method: request.method || 'GET',
 					headers,
 					body,
+					collectionId,
 					createdAt: new Date().toISOString()
 				});
 			});
@@ -122,7 +149,7 @@ export function activate(context: vscode.ExtensionContext) {
 				});
 		}
 
-		return { requests, variables };
+		return { requests, variables, collections };
 	};
 
 	const sidebarProvider = new SidebarProvider(context);
@@ -148,6 +175,102 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const loadRequestCommand = vscode.commands.registerCommand('postgirl.loadRequest', (request: SavedRequest) => {
 		RestClientPanel.createOrShow(context.extensionUri, context, request, false);
+	});
+
+	const addCollectionCommand = vscode.commands.registerCommand('postgirl.addCollection', async () => {
+		const name = await vscode.window.showInputBox({
+			prompt: 'Enter a collection name',
+			placeHolder: 'My Collection',
+			validateInput: (value) => {
+				const trimmed = value.trim();
+				if (!trimmed) {
+					return 'Collection name cannot be empty';
+				}
+				const collections = context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
+				const exists = collections.some(c => c.name.toLowerCase() === trimmed.toLowerCase());
+				return exists ? 'A collection with this name already exists' : null;
+			}
+		});
+
+		if (!name) {
+			return;
+		}
+
+		const collections = context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
+		const collection: RequestCollection = {
+			id: Date.now().toString(),
+			name: name.trim(),
+			createdAt: new Date().toISOString()
+		};
+		collections.push(collection);
+		await context.globalState.update('postgirl.requestCollections', collections);
+		sidebarProvider.refresh();
+		vscode.window.showInformationMessage(`Collection "${collection.name}" created!`);
+	});
+
+	const renameCollectionCommand = vscode.commands.registerCommand('postgirl.renameCollection', async (item: SidebarItem) => {
+		const collections = context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
+		const collection = collections.find(c => c.id === item.requestId);
+
+		if (!collection) {
+			return;
+		}
+
+		const newName = await vscode.window.showInputBox({
+			prompt: 'Rename collection',
+			value: collection.name,
+			validateInput: (value) => {
+				const trimmed = value.trim();
+				if (!trimmed) {
+					return 'Collection name cannot be empty';
+				}
+				const exists = collections.some(c => c.id !== collection.id && c.name.toLowerCase() === trimmed.toLowerCase());
+				return exists ? 'A collection with this name already exists' : null;
+			}
+		});
+
+		if (!newName) {
+			return;
+		}
+
+		collection.name = newName.trim();
+		await context.globalState.update('postgirl.requestCollections', collections);
+		sidebarProvider.refresh();
+		vscode.window.showInformationMessage('Collection renamed successfully!');
+	});
+
+	const deleteCollectionCommand = vscode.commands.registerCommand('postgirl.deleteCollection', async (item: SidebarItem) => {
+		const collections = context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
+		const collection = collections.find(c => c.id === item.requestId);
+
+		if (!collection) {
+			return;
+		}
+
+		const confirmation = await vscode.window.showWarningMessage(
+			`Delete collection "${collection.name}"? Requests in this collection will be kept as uncategorized.`,
+			{ modal: true },
+			'Delete',
+			'Cancel'
+		);
+
+		if (confirmation !== 'Delete') {
+			return;
+		}
+
+		const remainingCollections = collections.filter(c => c.id !== collection.id);
+		await context.globalState.update('postgirl.requestCollections', remainingCollections);
+
+		const requests = context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+		const updatedRequests = requests.map(req =>
+			req.collectionId === collection.id
+				? { ...req, collectionId: undefined }
+				: req
+		);
+		await context.globalState.update('postgirl.savedRequests', updatedRequests);
+
+		sidebarProvider.refresh();
+		vscode.window.showInformationMessage('Collection deleted. Requests moved to Uncategorized.');
 	});
 
 	const searchRequestsCommand = vscode.commands.registerCommand('postgirl.searchRequests', async () => {
@@ -256,10 +379,11 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const exportSessionCommand = vscode.commands.registerCommand('postgirl.exportSession', async () => {
 		const savedRequests = context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+		const requestCollections = context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
 		const variables = context.globalState.get<Variable[]>('postgirl.variables', []);
 		const savedHeaders = context.globalState.get('postgirl.savedHeaders', []);
 
-		if (savedRequests.length === 0 && variables.length === 0 && savedHeaders.length === 0) {
+		if (savedRequests.length === 0 && requestCollections.length === 0 && variables.length === 0 && savedHeaders.length === 0) {
 			vscode.window.showWarningMessage('No data to export. Your session is empty.');
 			return;
 		}
@@ -268,6 +392,7 @@ export function activate(context: vscode.ExtensionContext) {
 			version: '1.0.0',
 			exportedAt: new Date().toISOString(),
 			savedRequests,
+			requestCollections,
 			variables,
 			savedHeaders
 		};
@@ -288,7 +413,7 @@ export function activate(context: vscode.ExtensionContext) {
 				const buffer = Buffer.from(jsonString, 'utf8');
 				await vscode.workspace.fs.writeFile(uri, buffer);
 				vscode.window.showInformationMessage(
-					`Session exported successfully! (${savedRequests.length} requests, ${variables.length} variables, ${savedHeaders.length} headers)`
+					`Session exported successfully! (${savedRequests.length} requests, ${requestCollections.length} collections, ${variables.length} variables, ${savedHeaders.length} headers)`
 				);
 			} catch (error) {
 				vscode.window.showErrorMessage(`Failed to export session: ${error}`);
@@ -334,6 +459,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// Import all data
 			await context.globalState.update('postgirl.savedRequests', sessionData.savedRequests || []);
+			await context.globalState.update('postgirl.requestCollections', sessionData.requestCollections || []);
 			await context.globalState.update('postgirl.variables', sessionData.variables || []);
 			await context.globalState.update('postgirl.savedHeaders', sessionData.savedHeaders || []);
 
@@ -343,7 +469,7 @@ export function activate(context: vscode.ExtensionContext) {
 				RestClientPanel.currentPanel.reloadVariables();
 			}
 			vscode.window.showInformationMessage(
-				`Session imported successfully! (${sessionData.savedRequests?.length || 0} requests, ${sessionData.variables?.length || 0} variables, ${sessionData.savedHeaders?.length || 0} headers)`
+				`Session imported successfully! (${sessionData.savedRequests?.length || 0} requests, ${sessionData.requestCollections?.length || 0} collections, ${sessionData.variables?.length || 0} variables, ${sessionData.savedHeaders?.length || 0} headers)`
 			);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to import session: ${error}`);
@@ -368,9 +494,9 @@ export function activate(context: vscode.ExtensionContext) {
 			const buffer = await vscode.workspace.fs.readFile(uri[0]);
 			const jsonString = Buffer.from(buffer).toString('utf8');
 			const postmanData = JSON.parse(jsonString);
-			const { requests, variables } = parsePostmanCollection(postmanData);
+			const { requests, variables, collections } = parsePostmanCollection(postmanData);
 
-			if (requests.length === 0 && variables.length === 0) {
+			if (requests.length === 0 && variables.length === 0 && collections.length === 0) {
 				vscode.window.showWarningMessage('No requests or variables found in this Postman collection.');
 				return;
 			}
@@ -396,22 +522,47 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			const existingRequests = context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
+			const existingCollections = context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
 			const existingVariables = context.globalState.get<Variable[]>('postgirl.variables', []);
 
 			let mergedRequests: SavedRequest[] = [];
+			let mergedCollections: RequestCollection[] = [];
 			let mergedVariables: Variable[] = [];
 
 			if (importMode.label === 'Replace') {
 				mergedRequests = requests;
+				mergedCollections = collections;
 				mergedVariables = variables;
 			} else {
-				mergedRequests = [...existingRequests, ...requests];
+				const collectionNameToId = new Map(existingCollections.map(collection => [collection.name.toLowerCase(), collection.id]));
+				const importedCollectionIdMap = new Map<string, string>();
+				mergedCollections = [...existingCollections];
+
+				collections.forEach((collection) => {
+					const existingCollectionId = collectionNameToId.get(collection.name.toLowerCase());
+					if (existingCollectionId) {
+						importedCollectionIdMap.set(collection.id, existingCollectionId);
+						return;
+					}
+
+					mergedCollections.push(collection);
+					collectionNameToId.set(collection.name.toLowerCase(), collection.id);
+					importedCollectionIdMap.set(collection.id, collection.id);
+				});
+
+				const remappedRequests = requests.map(request => ({
+					...request,
+					collectionId: request.collectionId ? importedCollectionIdMap.get(request.collectionId) : undefined
+				}));
+
+				mergedRequests = [...existingRequests, ...remappedRequests];
 				const existingVariableNames = new Set(existingVariables.map(v => v.name));
 				const newVariables = variables.filter(v => !existingVariableNames.has(v.name));
 				mergedVariables = [...existingVariables, ...newVariables];
 			}
 
 			await context.globalState.update('postgirl.savedRequests', mergedRequests);
+			await context.globalState.update('postgirl.requestCollections', mergedCollections);
 			await context.globalState.update('postgirl.variables', mergedVariables);
 
 			sidebarProvider.refresh();
@@ -420,15 +571,16 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			const requestCount = requests.length;
+			const collectionCount = collections.length;
 			const variableCount = variables.length;
 			vscode.window.showInformationMessage(
-				`Postman import complete: ${requestCount} request(s), ${variableCount} variable(s).`
+				`Postman import complete: ${requestCount} request(s), ${collectionCount} collection(s), ${variableCount} variable(s).`
 			);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to import Postman collection: ${error}`);
 		}
 	});
 
-	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand, searchRequestsCommand, clearSearchCommand, addVariableCommand, editVariableCommand, deleteVariableCommand, exportSessionCommand, importSessionCommand, importPostmanCommand);
+	context.subscriptions.push(openClientCommand, refreshCommand, deleteRequestCommand, loadRequestCommand, addCollectionCommand, renameCollectionCommand, deleteCollectionCommand, searchRequestsCommand, clearSearchCommand, addVariableCommand, editVariableCommand, deleteVariableCommand, exportSessionCommand, importSessionCommand, importPostmanCommand);
 }
 export function deactivate() {}

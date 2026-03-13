@@ -9,6 +9,7 @@ A secure and user-friendly REST client for Visual Studio Code.
 - **Custom Headers**: Add, edit, and manage request headers with ease
 - **Persistent Header Storage**: Save your frequently used headers for quick access
 - **Request Storage**: Save complete requests (URL, method, headers, body) for later reuse
+- **Request Collections**: Organize saved requests into collections and keep uncategorized requests separate
 - **Request Body Editor**: Built-in JSON body editor for POST/PUT/PATCH requests
 - **Response Viewer**: Detailed response information with tabbed interface
   - Response body with automatic JSON formatting
@@ -30,6 +31,10 @@ A secure and user-friendly REST client for Visual Studio Code.
 5. Add headers if needed
 6. Add request body for POST/PUT/PATCH requests
 7. Click **Send**
+
+Keyboard shortcuts:
+- Press `Enter` in URL/method/header fields to send the request
+- Press `Ctrl+Enter` (or `Cmd+Enter` on macOS) in the request body to send
 
 ## Usage
 
@@ -53,9 +58,17 @@ Enter your API endpoint URL, select the HTTP method, and configure headers as ne
 
 - Click **"💾 Save Request"** to save the current request configuration
 - Enter a name for your request when prompted
-- Saved requests appear in the sidebar under **"Saved Requests"**
+- Choose a collection (or save as uncategorized) when prompted
+- Saved requests appear in the sidebar under **"Collections"**
 - Click on any saved request to load it into the editor
 - Right-click (or click the trash icon) on a saved request to delete it
+
+### Organizing with Collections
+
+- Click **"Add Collection"** to create a new collection
+- Rename or delete collections from the sidebar context actions
+- Deleting a collection keeps its requests and moves them to **"Uncategorized"**
+- Postman imports map folder paths into collections automatically when available
 
 ### Viewing Responses
 

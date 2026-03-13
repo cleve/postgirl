@@ -399,6 +399,10 @@ export function getRestClientHtml(): string {
 		}
 
 		function sendRequest() {
+			if (document.getElementById('sendBtn').disabled) {
+				return;
+			}
+
 			let url = document.getElementById('url').value.trim();
 			const method = document.getElementById('method').value;
 			let body = document.getElementById('requestBody').value.trim();
@@ -520,6 +524,30 @@ export function getRestClientHtml(): string {
 			} catch (error) {
 				console.error('Error saving request:', error);
 			}
+		}
+
+		function shouldSendOnEnter(event) {
+			if (event.key !== 'Enter') {
+				return false;
+			}
+
+			const target = event.target;
+			const isTextArea = target && target.tagName === 'TEXTAREA';
+
+			if (isTextArea) {
+				return event.ctrlKey || event.metaKey;
+			}
+
+			return !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+		}
+
+		function handleRequestKeydown(event) {
+			if (!shouldSendOnEnter(event)) {
+				return;
+			}
+
+			event.preventDefault();
+			sendRequest();
 		}
 
 		function switchTab(event) {
@@ -693,6 +721,10 @@ export function getRestClientHtml(): string {
 		document.getElementById('loadHeadersBtn').addEventListener('click', loadHeaders);
 		document.getElementById('saveRequestBtn').addEventListener('click', saveCurrentRequest);
 		document.getElementById('exportBtn').addEventListener('click', exportResults);
+		document.getElementById('url').addEventListener('keydown', handleRequestKeydown);
+		document.getElementById('method').addEventListener('keydown', handleRequestKeydown);
+		document.getElementById('headersContainer').addEventListener('keydown', handleRequestKeydown);
+		document.getElementById('requestBody').addEventListener('keydown', handleRequestKeydown);
 		
 		// Event delegation for remove header buttons
 		document.getElementById('headersContainer').addEventListener('click', function(e) {

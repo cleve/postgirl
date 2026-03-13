@@ -4,7 +4,14 @@ All notable changes to the "postgirl" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## 1.3.0 [01-22-2026]
+## 1.5.0 [03-12-2026]
+
+### Added
+- Request collections: organize saved requests into collections with an uncategorized bucket
+- Collection management: create, rename, and delete collections from the sidebar
+- Save flow enhancements: choose a collection when saving a request (or create one inline)
+- Keyboard request shortcuts: press `Enter` in URL/method/header fields to send requests
+- Body shortcut: press `Ctrl+Enter` (`Cmd+Enter` on macOS) in request body to send requests
 
 ## 1.4.0 [02-06-2026]
 
@@ -16,6 +23,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - JSON Content-Type toggle: New checkbox to automatically add `Content-Type: application/json` header
 - Smart header detection: Prevents duplicate Content-Type headers when manually added
 - State persistence: JSON toggle state is preserved when loading saved requests
+
+## 1.3.0 [01-22-2026]
 
 ## 1.2.1 [01-19-2026]
 

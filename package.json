@@ -2,7 +2,7 @@
   "name": "postgirl",
   "displayName": "postgirl",
   "description": "Secure rest client",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/cleve/postgirl.git"
@@ -88,6 +88,21 @@
         "command": "postgirl.importPostman",
         "title": "Import Postman Collection",
         "icon": "$(repo-pull)"
+      },
+      {
+        "command": "postgirl.addCollection",
+        "title": "Add Collection",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "postgirl.renameCollection",
+        "title": "Rename Collection",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "postgirl.deleteCollection",
+        "title": "Delete Collection",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -121,6 +136,11 @@
           "command": "postgirl.importPostman",
           "when": "view == postgirlSidebar",
           "group": "navigation@2"
+        },
+        {
+          "command": "postgirl.addCollection",
+          "when": "view == postgirlSidebar",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -137,6 +157,16 @@
         {
           "command": "postgirl.deleteVariable",
           "when": "view == postgirlSidebar && viewItem == variable",
+          "group": "inline"
+        },
+        {
+          "command": "postgirl.renameCollection",
+          "when": "view == postgirlSidebar && viewItem == requestCollection",
+          "group": "inline"
+        },
+        {
+          "command": "postgirl.deleteCollection",
+          "when": "view == postgirlSidebar && viewItem == requestCollection",
           "group": "inline"
         }
       ]

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as https from 'https';
 import * as http from 'http';
-import { SavedHeader, SavedRequest, Variable } from '../types';
+import { RequestCollection, SavedHeader, SavedRequest, Variable } from '../types';
 import { getRestClientHtml } from '../webview/restClientHtml';
 
 export class RestClientPanel {
@@ -242,7 +242,7 @@ export class RestClientPanel {
 		}
 	}
 
-	private async saveRequest(request: { name: string; url: string; method: string; headers: SavedHeader[]; body?: string }) {
+	private async saveRequest(request: { name: string; url: string; method: string; headers: SavedHeader[]; body?: string; collectionId?: string }) {
 		const savedRequests = this._context.globalState.get<SavedRequest[]>('postgirl.savedRequests', []);
 		const newRequest: SavedRequest = {
 			id: Date.now().toString(),
@@ -251,12 +251,84 @@ export class RestClientPanel {
 			method: request.method,
 			headers: request.headers,
 			body: request.body,
+			collectionId: request.collectionId,
 			createdAt: new Date().toISOString()
 		};
 		savedRequests.push(newRequest);
 		await this._context.globalState.update('postgirl.savedRequests', savedRequests);
 		vscode.window.showInformationMessage(`Request "${request.name}" saved successfully!`);
 		vscode.commands.executeCommand('postgirl.refreshSidebar');
+	}
+
+	private async createCollectionWithPrompt(): Promise<RequestCollection | undefined> {
+		const name = await vscode.window.showInputBox({
+			prompt: 'Enter a collection name',
+			placeHolder: 'My Collection',
+			validateInput: (value) => {
+				const trimmed = value.trim();
+				if (!trimmed) {
+					return 'Collection name cannot be empty';
+				}
+
+				const collections = this._context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
+				const exists = collections.some(c => c.name.toLowerCase() === trimmed.toLowerCase());
+				return exists ? 'A collection with this name already exists' : null;
+			}
+		});
+
+		if (!name) {
+			return undefined;
+		}
+
+		const collections = this._context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
+		const collection: RequestCollection = {
+			id: Date.now().toString(),
+			name: name.trim(),
+			createdAt: new Date().toISOString()
+		};
+		collections.push(collection);
+		await this._context.globalState.update('postgirl.requestCollections', collections);
+		vscode.commands.executeCommand('postgirl.refreshSidebar');
+		return collection;
+	}
+
+	private async pickCollectionForRequest(): Promise<string | undefined> {
+		const collections = this._context.globalState.get<RequestCollection[]>('postgirl.requestCollections', []);
+
+		const items: vscode.QuickPickItem[] = [
+			{
+				label: 'No Collection',
+				description: 'Save as uncategorized'
+			},
+			...collections.map(collection => ({
+				label: collection.name,
+				description: 'Collection'
+			})),
+			{
+				label: '$(add) Create New Collection',
+				description: 'Create and select a new collection'
+			}
+		];
+
+		const pick = await vscode.window.showQuickPick(items, {
+			placeHolder: 'Select a collection for this request'
+		});
+
+		if (!pick) {
+			return undefined;
+		}
+
+		if (pick.label === 'No Collection') {
+			return '';
+		}
+
+		if (pick.label === '$(add) Create New Collection') {
+			const newCollection = await this.createCollectionWithPrompt();
+			return newCollection?.id;
+		}
+
+		const selectedCollection = collections.find(c => c.name === pick.label);
+		return selectedCollection?.id;
 	}
 
 	private async saveRequestWithPrompt(request: { url: string; method: string; headers: SavedHeader[]; body?: string }) {
@@ -273,12 +345,18 @@ export class RestClientPanel {
 			return;
 		}
 
+		const collectionId = await this.pickCollectionForRequest();
+		if (collectionId === undefined) {
+			return;
+		}
+
 		await this.saveRequest({
 			name: name,
 			url: request.url,
 			method: request.method,
 			headers: request.headers,
-			body: request.body
+			body: request.body,
+			collectionId: collectionId || undefined
 		});
 	}
 
