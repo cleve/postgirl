@@ -278,6 +278,7 @@ export function getRestClientHtml(): string {
 
 			<div class="header-actions">
 				<button id="saveRequestBtn">💾 Save Request</button>
+				<button class="secondary" id="exportCurlBtn">Copy as cURL</button>
 			</div>
 		</div>
 
@@ -495,6 +496,67 @@ export function getRestClientHtml(): string {
 					}
 				});
 			}
+		}
+
+		function shellEscape(value) {
+			return "'" + value.replace(/'/g, "'\\''") + "'";
+		}
+
+		function buildCurlCommand(url, method, headers, body) {
+			const commandParts = [];
+
+			if (method !== 'GET') {
+				commandParts.push('-X ' + method);
+			}
+
+			headers.forEach(header => {
+				if (!header.key) {
+					return;
+				}
+				const headerValue = header.value ? header.key + ': ' + header.value : header.key + ':';
+				commandParts.push('-H ' + shellEscape(headerValue));
+			});
+
+			if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
+				commandParts.push('--data-raw ' + shellEscape(body));
+			}
+
+			commandParts.push(shellEscape(url));
+
+			if (commandParts.length === 1) {
+				return 'curl ' + commandParts[0];
+			}
+
+			return ['curl', ...commandParts].join(' ');
+		}
+
+		function exportRequestAsCurl() {
+			let url = document.getElementById('url').value.trim();
+			const method = document.getElementById('method').value;
+			let body = document.getElementById('requestBody').value.trim();
+			const headers = getHeaders();
+
+			if (!url) {
+				vscode.postMessage({
+					command: 'showError',
+					message: 'Please enter a URL before exporting'
+				});
+				return;
+			}
+
+			url = replaceVariables(url, variables);
+			headers.forEach(header => {
+				header.key = replaceVariables(header.key, variables);
+				header.value = replaceVariables(header.value, variables);
+			});
+			body = replaceVariables(body, variables);
+
+			const curlCommand = buildCurlCommand(url, method, headers, body);
+
+			vscode.postMessage({
+				command: 'exportRequestAsCurl',
+				curl: curlCommand
+			});
 		}
 
 		function saveCurrentRequest() {
@@ -720,6 +782,7 @@ export function getRestClientHtml(): string {
 		document.getElementById('saveHeadersBtn').addEventListener('click', saveHeaders);
 		document.getElementById('loadHeadersBtn').addEventListener('click', loadHeaders);
 		document.getElementById('saveRequestBtn').addEventListener('click', saveCurrentRequest);
+		document.getElementById('exportCurlBtn').addEventListener('click', exportRequestAsCurl);
 		document.getElementById('exportBtn').addEventListener('click', exportResults);
 		document.getElementById('url').addEventListener('keydown', handleRequestKeydown);
 		document.getElementById('method').addEventListener('keydown', handleRequestKeydown);

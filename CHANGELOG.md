@@ -4,6 +4,19 @@ All notable changes to the "postgirl" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.6.1 [03-12-2026]
+
+### Fixed
+- Webview button interactivity restored by fixing cURL export script runtime issue
+- Request actions (Send, Save, Header actions, Export) now initialize correctly
+
+## 1.6.0 [03-12-2026]
+
+### Added
+- Request cURL export: new `Export as cURL` button in the request panel
+- Variable-aware cURL generation: exported command resolves `{{variables}}` before writing
+- cURL file export flow: save generated command from a file dialog in `.sh`, `.txt`, or any extension
+
 ## 1.5.0 [03-12-2026]
 
 ### Added

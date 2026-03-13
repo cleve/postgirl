@@ -89,6 +89,9 @@ export class RestClientPanel {
 				case 'exportResults':
 						await this.exportResults(message.data);
 						break;
+				case 'exportRequestAsCurl':
+					await this.exportRequestAsCurl(message.curl);
+					break;
 					case 'saveRequest':
 						await this.saveRequestWithPrompt(message.request);
 						break;
@@ -240,6 +243,11 @@ export class RestClientPanel {
 			await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
 			vscode.window.showInformationMessage('Results exported successfully!');
 		}
+	}
+
+	private async exportRequestAsCurl(curlCommand: string) {
+		await vscode.env.clipboard.writeText(curlCommand);
+		vscode.window.showInformationMessage('Command copied');
 	}
 
 	private async saveRequest(request: { name: string; url: string; method: string; headers: SavedHeader[]; body?: string; collectionId?: string }) {
