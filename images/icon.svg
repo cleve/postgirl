@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a0533"/>
+      <stop offset="100%" stop-color="#4c1d95"/>
+    </linearGradient>
+    <linearGradient id="rocketBody" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#c4b5fd"/>
+      <stop offset="100%" stop-color="#f8f7ff"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="55%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#dc2626" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="128" height="128" rx="22" fill="url(#bg)"/>
+
+  <!-- Background star sparkles -->
+  <circle cx="20" cy="18" r="1.5" fill="#e9d5ff" opacity="0.8"/>
+  <circle cx="28" cy="12" r="1"   fill="#e9d5ff" opacity="0.5"/>
+  <circle cx="108" cy="24" r="2"  fill="#e9d5ff" opacity="0.6"/>
+  <circle cx="14"  cy="72" r="1"  fill="#e9d5ff" opacity="0.4"/>
+  <circle cx="118" cy="86" r="1.5" fill="#e9d5ff" opacity="0.35"/>
+  <circle cx="36"  cy="110" r="1" fill="#e9d5ff" opacity="0.45"/>
+
+  <!-- Rocket: centered at (57,67), rotated -40° (pointing upper-right) -->
+  <g transform="translate(57,67) rotate(-40)">
+    <!-- Exhaust flame -->
+    <ellipse cx="0" cy="31" rx="9"  ry="15" fill="url(#flame)"/>
+    <ellipse cx="0" cy="28" rx="5"  ry="9"  fill="#fef9c3" opacity="0.9"/>
+
+    <!-- Body -->
+    <rect x="-12" y="-22" width="24" height="42" rx="12" fill="url(#rocketBody)"/>
+
+    <!-- Nose cone (hot pink) -->
+    <path d="M-12,-22 Q0,-52 12,-22 Z" fill="#f72585"/>
+
+    <!-- Fins -->
+    <path d="M-12,14 L-24,30 L-5,21 Z" fill="#7c3aed"/>
+    <path d="M 12,14 L 24,30 L  5,21 Z" fill="#7c3aed"/>
+
+    <!-- Porthole -->
+    <circle cx="0" cy="-5" r="8"   fill="#1e1b4b"/>
+    <circle cx="0" cy="-5" r="5.5" fill="#4f46e5"/>
+    <circle cx="-2" cy="-7" r="2.2" fill="#818cf8" opacity="0.65"/>
+  </g>
+
+  <!-- Flowing pink ribbon (the "girl" flourish) -->
+  <path d="M78 18 Q104 6 118 28 Q124 44 112 57 Q97 48 82 56"
+        stroke="#f72585" stroke-width="6" fill="none"
+        stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M78 18 Q104 6 118 28 Q124 44 112 57 Q97 48 82 56"
+        stroke="#ff85c8" stroke-width="2.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Ribbon end dot -->
+  <circle cx="82" cy="56" r="3.5" fill="#f72585" opacity="0.8"/>
+
+  <!-- API connectivity arcs (bottom-right corner) -->
+  <path d="M89 100 Q96 93 103 100" stroke="#a78bfa" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+  <path d="M85 105 Q96 95 107 105" stroke="#a78bfa" stroke-width="2.8" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M81 110 Q96 97 111 110" stroke="#a78bfa" stroke-width="2.8" fill="none" stroke-linecap="round" opacity="0.45"/>
+  <!-- Center dot for arcs -->
+  <circle cx="96" cy="113" r="3.5" fill="#a78bfa"/>
+</svg>

@@ -9,6 +9,8 @@ A secure and user-friendly REST client for Visual Studio Code.
 - **Custom Headers**: Add, edit, and manage request headers with ease
 - **Persistent Header Storage**: Save your frequently used headers for quick access
 - **Request Storage**: Save complete requests (URL, method, headers, body) for later reuse
+- **Save as New**: Duplicate a loaded request as a brand-new entry without overwriting the original
+- **Basic Auth**: Built-in Basic Authentication support — enter credentials and the `Authorization` header is generated automatically
 - **Request Collections**: Organize saved requests into collections and keep uncategorized requests separate
 - **Request Body Editor**: Built-in JSON body editor for POST/PUT/PATCH requests
 - **Response Viewer**: Detailed response information with tabbed interface
@@ -62,7 +64,15 @@ Enter your API endpoint URL, select the HTTP method, and configure headers as ne
 - Saved requests appear in the sidebar under **"Collections"**
 - Click on any saved request to load it into the editor
 - Loaded saved requests can be edited and updated in place with **"✏️ Update Request"**
+- Click **"➕ Save as New"** (visible when editing a loaded request) to save a copy as a new request without overwriting the original
 - Right-click (or click the trash icon) on a saved request to delete it
+
+### Basic Authentication
+
+- Check **"Basic Auth"** below the JSON Content-Type toggle to reveal username and password fields
+- The `Authorization: Basic <encoded>` header is generated and injected automatically before each request
+- If a manually added `Authorization` header is already present, the Basic Auth toggle is ignored to avoid conflicts
+- When loading a saved request that used Basic Auth, the checkbox is automatically enabled and credentials are pre-filled
 
 ### Organizing with Collections
 

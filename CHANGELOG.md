@@ -4,7 +4,13 @@ All notable changes to the "postgirl" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## 1.7.0 [03-13-2026]
+## 1.8.0 [03-22-2026]
+
+### Added
+- Save as New: new **"➕ Save as New"** button appears alongside **"✏️ Update Request"** when editing a loaded request, allowing you to duplicate it as a brand-new entry without overwriting the original
+- Basic Auth support: new **Basic Auth** checkbox in the request panel reveals username and password fields; the `Authorization: Basic …` header is generated automatically and injected before sending
+- Basic Auth persistence: when loading a saved request that contains a `Basic` authorization header, the checkbox is enabled and the credentials are decoded and pre-filled automatically
+
 
 ### Added
 - Collection drag and drop: move saved requests between collections directly from the sidebar tree

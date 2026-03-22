@@ -229,6 +229,17 @@ export function getRestClientHtml(): string {
 			cursor: pointer;
 			font-weight: normal;
 		}
+
+		.auth-fields {
+			display: flex;
+			gap: 10px;
+			margin-top: 8px;
+			margin-bottom: 15px;
+		}
+
+		.auth-fields input {
+			flex: 1;
+		}
 	</style>
 </head>
 <body>
@@ -272,12 +283,21 @@ export function getRestClientHtml(): string {
 					<input type="checkbox" id="jsonContentType" />
 					<label for="jsonContentType">Automatically add JSON Content-Type header</label>
 				</div>
+				<div class="json-toggle">
+					<input type="checkbox" id="basicAuthEnabled" />
+					<label for="basicAuthEnabled">Basic Auth</label>
+				</div>
+				<div class="auth-fields" id="basicAuthFields" style="display: none;">
+					<input type="text" id="basicAuthUser" placeholder="Username" />
+					<input type="password" id="basicAuthPass" placeholder="Password" />
+				</div>
 				<label>Request Body (JSON)</label>
 				<textarea id="requestBody" placeholder='{"key": "value"}'></textarea>
 			</div>
 
 			<div class="header-actions">
 				<button id="saveRequestBtn">💾 Save Request</button>
+				<button class="secondary" id="saveAsNewBtn" style="display: none;">➕ Save as New</button>
 				<button class="secondary" id="exportCurlBtn">Copy as cURL</button>
 			</div>
 		</div>
@@ -367,6 +387,7 @@ export function getRestClientHtml(): string {
 			const headers = [];
 			const headerRows = document.querySelectorAll('#headersContainer .header-row');
 			const jsonContentTypeEnabled = document.getElementById('jsonContentType').checked;
+			const basicAuthEnabled = document.getElementById('basicAuthEnabled').checked;
 			
 			headerRows.forEach(row => {
 				const key = row.querySelector('.header-key').value.trim();
@@ -383,6 +404,19 @@ export function getRestClientHtml(): string {
 				);
 				if (!hasContentType) {
 					headers.push({ key: 'Content-Type', value: 'application/json' });
+				}
+			}
+
+			// Add Authorization header if Basic Auth is enabled and not already present
+			if (basicAuthEnabled) {
+				const user = document.getElementById('basicAuthUser').value;
+				const pass = document.getElementById('basicAuthPass').value;
+				const hasAuthorization = headers.some(h =>
+					h.key.toLowerCase() === 'authorization'
+				);
+				if (!hasAuthorization) {
+					const encoded = btoa(user + ':' + pass);
+					headers.push({ key: 'Authorization', value: 'Basic ' + encoded });
 				}
 			}
 			
@@ -592,6 +626,35 @@ export function getRestClientHtml(): string {
 			}
 		}
 
+		function saveAsNewRequest() {
+			try {
+				const url = document.getElementById('url').value.trim();
+				const method = document.getElementById('method').value;
+				const body = document.getElementById('requestBody').value.trim();
+				const headers = getHeaders();
+
+				if (!url) {
+					vscode.postMessage({
+						command: 'showError',
+						message: 'Please enter a URL before saving'
+					});
+					return;
+				}
+
+				vscode.postMessage({
+					command: 'saveRequest',
+					request: {
+						url: url,
+						method: method,
+						headers: headers,
+						body: body || undefined
+					}
+				});
+			} catch (error) {
+				console.error('Error saving as new request:', error);
+			}
+		}
+
 		function shouldSendOnEnter(event) {
 			if (event.key !== 'Enter') {
 				return false;
@@ -726,6 +789,7 @@ export function getRestClientHtml(): string {
 						collectionId: message.request.collectionId
 					};
 					document.getElementById('saveRequestBtn').textContent = '✏️ Update Request';
+					document.getElementById('saveAsNewBtn').style.display = '';
 					document.getElementById('url').value = message.request.url;
 					document.getElementById('method').value = message.request.method;
 					document.getElementById('requestBody').value = message.request.body || '';
@@ -735,6 +799,29 @@ export function getRestClientHtml(): string {
 						h.key.toLowerCase() === 'content-type' && h.value.toLowerCase().includes('application/json')
 					);
 					document.getElementById('jsonContentType').checked = hasJsonContentType;
+
+					// Check if Authorization: Basic ... is in the headers
+					const basicAuthHeader = message.request.headers.find(h =>
+						h.key.toLowerCase() === 'authorization' && h.value.toLowerCase().startsWith('basic ')
+					);
+					if (basicAuthHeader) {
+						try {
+							const decoded = atob(basicAuthHeader.value.slice(6));
+							const colonIdx = decoded.indexOf(':');
+							document.getElementById('basicAuthUser').value = colonIdx >= 0 ? decoded.slice(0, colonIdx) : decoded;
+							document.getElementById('basicAuthPass').value = colonIdx >= 0 ? decoded.slice(colonIdx + 1) : '';
+						} catch (e) {
+							document.getElementById('basicAuthUser').value = '';
+							document.getElementById('basicAuthPass').value = '';
+						}
+						document.getElementById('basicAuthEnabled').checked = true;
+						document.getElementById('basicAuthFields').style.display = '';
+					} else {
+						document.getElementById('basicAuthEnabled').checked = false;
+						document.getElementById('basicAuthUser').value = '';
+						document.getElementById('basicAuthPass').value = '';
+						document.getElementById('basicAuthFields').style.display = 'none';
+					}
 					
 					const headersContainer = document.getElementById('headersContainer');
 					headersContainer.innerHTML = '';
@@ -765,10 +852,15 @@ export function getRestClientHtml(): string {
 				case 'clearForm':
 					editingRequest = null;
 					document.getElementById('saveRequestBtn').textContent = '💾 Save Request';
+					document.getElementById('saveAsNewBtn').style.display = 'none';
 					document.getElementById('url').value = '';
 					document.getElementById('method').value = 'GET';
 					document.getElementById('requestBody').value = '';
 					document.getElementById('jsonContentType').checked = false;
+					document.getElementById('basicAuthEnabled').checked = false;
+					document.getElementById('basicAuthUser').value = '';
+					document.getElementById('basicAuthPass').value = '';
+					document.getElementById('basicAuthFields').style.display = 'none';
 					
 					const clearContainer = document.getElementById('headersContainer');
 					clearContainer.innerHTML = '';
@@ -794,7 +886,11 @@ export function getRestClientHtml(): string {
 		document.getElementById('saveHeadersBtn').addEventListener('click', saveHeaders);
 		document.getElementById('loadHeadersBtn').addEventListener('click', loadHeaders);
 		document.getElementById('saveRequestBtn').addEventListener('click', saveCurrentRequest);
+		document.getElementById('saveAsNewBtn').addEventListener('click', saveAsNewRequest);
 		document.getElementById('exportCurlBtn').addEventListener('click', exportRequestAsCurl);
+		document.getElementById('basicAuthEnabled').addEventListener('change', function() {
+			document.getElementById('basicAuthFields').style.display = this.checked ? '' : 'none';
+		});
 		document.getElementById('copyResultsBtn').addEventListener('click', copyResults);
 		document.getElementById('url').addEventListener('keydown', handleRequestKeydown);
 		document.getElementById('method').addEventListener('keydown', handleRequestKeydown);

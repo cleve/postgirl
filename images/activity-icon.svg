@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Rocket body (nose + cylinder + base) -->
+  <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"
+    d="M8 0.5 C5.5 0.5 4 3.2 4 5.5 L4 9.5 L6 9.5 L6 11.5 L10 11.5 L10 9.5 L12 9.5 L12 5.5 C12 3.2 10.5 0.5 8 0.5 Z
+       M7 5.5 C7 4.9 7.4 4.5 8 4.5 C8.6 4.5 9 4.9 9 5.5 C9 6.1 8.6 6.5 8 6.5 C7.4 6.5 7 6.1 7 5.5 Z"/>
+  <!-- Left fin -->
+  <path fill="currentColor" d="M4 8.5 L1.5 12.5 L4 11.5 Z"/>
+  <!-- Right fin -->
+  <path fill="currentColor" d="M12 8.5 L14.5 12.5 L12 11.5 Z"/>
+  <!-- Flame -->
+  <path fill="currentColor" opacity="0.55" d="M6.5 11.5 Q8 15.5 9.5 11.5 Z"/>
+</svg>
