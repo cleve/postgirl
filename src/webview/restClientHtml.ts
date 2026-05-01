@@ -112,9 +112,71 @@ export function getRestClientHtml(): string {
 
 		.body-section textarea {
 			width: 100%;
-			min-height: 150px;
+			min-height: 240px;
 			font-family: 'Courier New', monospace;
 			font-size: 13px;
+			line-height: 1.45;
+			resize: vertical;
+			tab-size: 2;
+		}
+
+		.body-editor-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 10px;
+			margin-bottom: 8px;
+			flex-wrap: wrap;
+		}
+
+		.body-editor-actions {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+
+		button.ghost {
+			background: transparent;
+			color: var(--vscode-button-foreground);
+			border: 1px solid var(--vscode-button-border, var(--vscode-editorWidget-border));
+			padding: 6px 10px;
+			font-size: 12px;
+		}
+
+		button.ghost:hover {
+			background: var(--vscode-list-hoverBackground);
+		}
+
+		.json-editor-hint {
+			font-size: 11px;
+			color: var(--vscode-descriptionForeground);
+		}
+
+		.request-body-meta {
+			display: flex;
+			justify-content: space-between;
+			gap: 10px;
+			margin-top: 8px;
+			font-size: 11px;
+			color: var(--vscode-descriptionForeground);
+			flex-wrap: wrap;
+		}
+
+		.json-status-valid {
+			color: var(--vscode-testing-iconPassed, #4caf50);
+		}
+
+		.json-status-invalid {
+			color: var(--vscode-inputValidation-errorBorder, #f44336);
+		}
+
+		#requestBody.invalid {
+			border-color: var(--vscode-inputValidation-errorBorder);
+		}
+
+		#requestBody.validation-warning {
+			border-color: var(--vscode-inputValidation-warningBorder);
 		}
 
 		.response-section {
@@ -240,6 +302,42 @@ export function getRestClientHtml(): string {
 		.auth-fields input {
 			flex: 1;
 		}
+
+		.schema-section {
+			margin-top: 14px;
+		}
+
+		.schema-section textarea {
+			width: 100%;
+			min-height: 140px;
+			font-family: 'Courier New', monospace;
+			font-size: 12px;
+			line-height: 1.4;
+			resize: vertical;
+			tab-size: 2;
+		}
+
+		.schema-meta {
+			display: flex;
+			justify-content: space-between;
+			gap: 10px;
+			margin-top: 6px;
+			font-size: 11px;
+			color: var(--vscode-descriptionForeground);
+			flex-wrap: wrap;
+		}
+
+		.schema-status-invalid {
+			color: var(--vscode-inputValidation-errorBorder, #f44336);
+		}
+
+		.schema-status-valid {
+			color: var(--vscode-testing-iconPassed, #4caf50);
+		}
+
+		#requestSchema.invalid {
+			border-color: var(--vscode-inputValidation-errorBorder);
+		}
 	</style>
 </head>
 <body>
@@ -280,19 +378,42 @@ export function getRestClientHtml(): string {
 
 			<div class="body-section">
 				<div class="json-toggle">
-					<input type="checkbox" id="jsonContentType" />
+					<input type="checkbox" id="jsonContentType" checked />
 					<label for="jsonContentType">Automatically add JSON Content-Type header</label>
 				</div>
 				<div class="json-toggle">
 					<input type="checkbox" id="basicAuthEnabled" />
 					<label for="basicAuthEnabled">Basic Auth</label>
 				</div>
+				<div class="json-toggle">
+					<input type="checkbox" id="schemaValidationEnabled" />
+					<label for="schemaValidationEnabled">Validate request body against JSON Schema before send</label>
+				</div>
 				<div class="auth-fields" id="basicAuthFields" style="display: none;">
 					<input type="text" id="basicAuthUser" placeholder="Username" />
 					<input type="password" id="basicAuthPass" placeholder="Password" />
 				</div>
-				<label>Request Body (JSON)</label>
-				<textarea id="requestBody" placeholder='{"key": "value"}'></textarea>
+				<div class="body-editor-header">
+					<label for="requestBody" style="margin-bottom: 0;">Request Body (JSON)</label>
+					<div class="body-editor-actions">
+						<button type="button" class="ghost" id="formatJsonBtn">Format</button>
+						<button type="button" class="ghost" id="minifyJsonBtn">Minify</button>
+						<button type="button" class="ghost" id="clearJsonBtn">Clear</button>
+					</div>
+				</div>
+				<textarea id="requestBody" placeholder='{"key": "value"}' spellcheck="false"></textarea>
+				<div class="request-body-meta">
+					<span id="jsonValidationStatus">Empty body</span>
+					<span id="requestBodyStats">0 chars | Ln 1, Col 1</span>
+				</div>
+				<div class="schema-section" id="schemaSection" style="display: none;">
+					<label for="requestSchema">Request Schema (JSON Schema)</label>
+					<textarea id="requestSchema" placeholder='{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}' spellcheck="false"></textarea>
+					<div class="schema-meta">
+						<span id="schemaValidationStatus">Schema validator disabled</span>
+						<span id="schemaStats">0 chars</span>
+					</div>
+				</div>
 			</div>
 
 			<div class="header-actions">
@@ -434,6 +555,334 @@ export function getRestClientHtml(): string {
 			return result;
 		}
 
+		function getRequestBodyElement() {
+			return document.getElementById('requestBody');
+		}
+
+		function parseRequestBodyJson() {
+			const body = getRequestBodyElement().value.trim();
+			if (!body) {
+				return { state: 'empty' };
+			}
+
+			try {
+				const parsed = JSON.parse(body);
+				return { state: 'valid', parsed: parsed };
+			} catch (error) {
+				return {
+					state: 'invalid',
+					error: error && error.message ? error.message : 'Invalid JSON'
+				};
+			}
+		}
+
+		function getCaretLineAndColumn(text, caretPosition) {
+			const beforeCaret = text.slice(0, caretPosition);
+			const lines = beforeCaret.split('\\n');
+			const line = lines.length;
+			const column = lines[lines.length - 1].length + 1;
+			return { line: line, column: column };
+		}
+
+		function updateRequestBodyMeta() {
+			const bodyElement = getRequestBodyElement();
+			const statusElement = document.getElementById('jsonValidationStatus');
+			const statsElement = document.getElementById('requestBodyStats');
+			const parseResult = parseRequestBodyJson();
+			const caret = getCaretLineAndColumn(bodyElement.value, bodyElement.selectionStart || 0);
+
+			statsElement.textContent = bodyElement.value.length + ' chars | Ln ' + caret.line + ', Col ' + caret.column;
+
+			statusElement.classList.remove('json-status-valid', 'json-status-invalid');
+			bodyElement.classList.remove('invalid', 'validation-warning');
+
+			if (parseResult.state === 'empty') {
+				statusElement.textContent = 'Empty body';
+				return;
+			}
+
+			if (parseResult.state === 'valid') {
+				statusElement.textContent = 'Valid JSON';
+				statusElement.classList.add('json-status-valid');
+				return;
+			}
+
+			statusElement.textContent = parseResult.error;
+			statusElement.classList.add('json-status-invalid');
+			bodyElement.classList.add('invalid');
+		}
+
+		function formatRequestBodyJson(minify) {
+			const bodyElement = getRequestBodyElement();
+			const parseResult = parseRequestBodyJson();
+
+			if (parseResult.state === 'empty') {
+				return;
+			}
+
+			if (parseResult.state === 'invalid') {
+				bodyElement.classList.add('validation-warning');
+				updateRequestBodyMeta();
+				return;
+			}
+
+			bodyElement.value = minify
+				? JSON.stringify(parseResult.parsed)
+				: JSON.stringify(parseResult.parsed, null, 2);
+			bodyElement.selectionStart = bodyElement.value.length;
+			bodyElement.selectionEnd = bodyElement.value.length;
+			updateRequestBodyMeta();
+		}
+
+		function clearRequestBody() {
+			getRequestBodyElement().value = '';
+			updateRequestBodyMeta();
+		}
+
+		function getRequestSchemaElement() {
+			return document.getElementById('requestSchema');
+		}
+
+		function parseJsonText(text, label) {
+			const content = text.trim();
+			if (!content) {
+				return { ok: false, error: label + ' is empty' };
+			}
+
+			try {
+				return { ok: true, value: JSON.parse(content) };
+			} catch (error) {
+				return {
+					ok: false,
+					error: label + ' is not valid JSON: ' + (error && error.message ? error.message : 'Invalid JSON')
+				};
+			}
+		}
+
+		function isInteger(value) {
+			return Number.isInteger(value);
+		}
+
+		function getDataType(value) {
+			if (value === null) {
+				return 'null';
+			}
+			if (Array.isArray(value)) {
+				return 'array';
+			}
+			if (typeof value === 'number' && isInteger(value)) {
+				return 'integer';
+			}
+			return typeof value;
+		}
+
+		function isTypeMatch(value, expectedType) {
+			if (expectedType === 'number') {
+				return typeof value === 'number' && !Number.isNaN(value);
+			}
+			if (expectedType === 'integer') {
+				return typeof value === 'number' && isInteger(value);
+			}
+			if (expectedType === 'array') {
+				return Array.isArray(value);
+			}
+			if (expectedType === 'null') {
+				return value === null;
+			}
+			if (expectedType === 'object') {
+				return value !== null && typeof value === 'object' && !Array.isArray(value);
+			}
+			return typeof value === expectedType;
+		}
+
+		function validateBySchema(data, schema, path, errors) {
+			const currentPath = path || '$';
+
+			if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+				errors.push(currentPath + ': schema must be an object');
+				return;
+			}
+
+			if (schema.type !== undefined) {
+				const allowedTypes = Array.isArray(schema.type) ? schema.type : [schema.type];
+				const matched = allowedTypes.some(type => isTypeMatch(data, type));
+
+				if (!matched) {
+					errors.push(currentPath + ': expected type ' + allowedTypes.join(' or ') + ' but got ' + getDataType(data));
+					return;
+				}
+			}
+
+			if (schema.const !== undefined && JSON.stringify(data) !== JSON.stringify(schema.const)) {
+				errors.push(currentPath + ': value must equal const ' + JSON.stringify(schema.const));
+			}
+
+			if (schema.enum && Array.isArray(schema.enum)) {
+				const enumMatch = schema.enum.some(item => JSON.stringify(item) === JSON.stringify(data));
+				if (!enumMatch) {
+					errors.push(currentPath + ': value is not in enum');
+				}
+			}
+
+			if (typeof data === 'string') {
+				if (typeof schema.minLength === 'number' && data.length < schema.minLength) {
+					errors.push(currentPath + ': minLength is ' + schema.minLength);
+				}
+				if (typeof schema.maxLength === 'number' && data.length > schema.maxLength) {
+					errors.push(currentPath + ': maxLength is ' + schema.maxLength);
+				}
+				if (schema.pattern) {
+					try {
+						const pattern = new RegExp(schema.pattern);
+						if (!pattern.test(data)) {
+							errors.push(currentPath + ': does not match pattern ' + schema.pattern);
+						}
+					} catch (_) {
+						errors.push(currentPath + ': invalid pattern in schema');
+					}
+				}
+			}
+
+			if (typeof data === 'number') {
+				if (typeof schema.minimum === 'number' && data < schema.minimum) {
+					errors.push(currentPath + ': minimum is ' + schema.minimum);
+				}
+				if (typeof schema.maximum === 'number' && data > schema.maximum) {
+					errors.push(currentPath + ': maximum is ' + schema.maximum);
+				}
+				if (typeof schema.exclusiveMinimum === 'number' && data <= schema.exclusiveMinimum) {
+					errors.push(currentPath + ': must be > ' + schema.exclusiveMinimum);
+				}
+				if (typeof schema.exclusiveMaximum === 'number' && data >= schema.exclusiveMaximum) {
+					errors.push(currentPath + ': must be < ' + schema.exclusiveMaximum);
+				}
+			}
+
+			if (Array.isArray(data)) {
+				if (typeof schema.minItems === 'number' && data.length < schema.minItems) {
+					errors.push(currentPath + ': minItems is ' + schema.minItems);
+				}
+				if (typeof schema.maxItems === 'number' && data.length > schema.maxItems) {
+					errors.push(currentPath + ': maxItems is ' + schema.maxItems);
+				}
+
+				if (schema.items && typeof schema.items === 'object') {
+					data.forEach((item, index) => {
+						validateBySchema(item, schema.items, currentPath + '[' + index + ']', errors);
+					});
+				}
+			}
+
+			if (data !== null && typeof data === 'object' && !Array.isArray(data)) {
+				const required = Array.isArray(schema.required) ? schema.required : [];
+				required.forEach(key => {
+					if (!(key in data)) {
+						errors.push(currentPath + ': missing required property "' + key + '"');
+					}
+				});
+
+				const properties = schema.properties && typeof schema.properties === 'object'
+					? schema.properties
+					: {};
+
+				Object.keys(properties).forEach(key => {
+					if (key in data) {
+						validateBySchema(data[key], properties[key], currentPath + '.' + key, errors);
+					}
+				});
+
+				if (schema.additionalProperties === false) {
+					Object.keys(data).forEach(key => {
+						if (!(key in properties)) {
+							errors.push(currentPath + ': additional property "' + key + '" is not allowed');
+						}
+					});
+				} else if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
+					Object.keys(data).forEach(key => {
+						if (!(key in properties)) {
+							validateBySchema(data[key], schema.additionalProperties, currentPath + '.' + key, errors);
+						}
+					});
+				}
+			}
+		}
+
+		function validateRequestBodyAgainstSchema(bodyText) {
+			if (!document.getElementById('schemaValidationEnabled').checked) {
+				return { ok: true };
+			}
+
+			const schemaElement = getRequestSchemaElement();
+			const schemaText = schemaElement.value.trim();
+			const bodyContent = bodyText.trim();
+
+			// If there is no request body, there is nothing to validate.
+			if (!bodyContent) {
+				return { ok: true };
+			}
+
+			// Keep schema validation opt-in: empty schema means "skip" instead of hard-blocking send.
+			if (!schemaText) {
+				return { ok: true };
+			}
+
+			const schemaResult = parseJsonText(schemaElement.value, 'Schema');
+			if (!schemaResult.ok) {
+				return { ok: false, error: schemaResult.error };
+			}
+
+			const bodyResult = parseJsonText(bodyText, 'Request body');
+			if (!bodyResult.ok) {
+				return { ok: false, error: bodyResult.error };
+			}
+
+			const errors = [];
+			validateBySchema(bodyResult.value, schemaResult.value, '$', errors);
+			if (errors.length > 0) {
+				return { ok: false, error: errors.slice(0, 5).join(' | ') };
+			}
+
+			return { ok: true };
+		}
+
+		function updateSchemaMeta() {
+			const schemaElement = getRequestSchemaElement();
+			const statusElement = document.getElementById('schemaValidationStatus');
+			const statsElement = document.getElementById('schemaStats');
+			const schemaEnabled = document.getElementById('schemaValidationEnabled').checked;
+
+			statsElement.textContent = schemaElement.value.length + ' chars';
+			statusElement.classList.remove('schema-status-valid', 'schema-status-invalid');
+			schemaElement.classList.remove('invalid');
+
+			if (!schemaEnabled) {
+				statusElement.textContent = 'Schema validator disabled';
+				return;
+			}
+
+			if (!schemaElement.value.trim()) {
+				statusElement.textContent = 'Schema is empty (validation skipped)';
+				return;
+			}
+
+			const result = parseJsonText(schemaElement.value, 'Schema');
+			if (result.ok) {
+				statusElement.textContent = 'Schema JSON is valid';
+				statusElement.classList.add('schema-status-valid');
+				return;
+			}
+
+			statusElement.textContent = result.error;
+			statusElement.classList.add('schema-status-invalid');
+			schemaElement.classList.add('invalid');
+		}
+
+		function toggleSchemaSection() {
+			const isEnabled = document.getElementById('schemaValidationEnabled').checked;
+			document.getElementById('schemaSection').style.display = isEnabled ? '' : 'none';
+			updateSchemaMeta();
+		}
+
 		function sendRequest() {
 			if (document.getElementById('sendBtn').disabled) {
 				return;
@@ -462,6 +911,14 @@ export function getRestClientHtml(): string {
 			
 			// Replace variables in body
 			body = replaceVariables(body, variables);
+
+			const schemaValidation = validateRequestBodyAgainstSchema(body);
+			if (!schemaValidation.ok) {
+				document.getElementById('responseSection').style.display = 'none';
+				document.getElementById('errorSection').style.display = 'block';
+				document.getElementById('errorMessage').textContent = 'Schema validation failed: ' + schemaValidation.error;
+				return;
+			}
 
 			if (!url) {
 				vscode.postMessage({
@@ -655,30 +1112,6 @@ export function getRestClientHtml(): string {
 			}
 		}
 
-		function shouldSendOnEnter(event) {
-			if (event.key !== 'Enter') {
-				return false;
-			}
-
-			const target = event.target;
-			const isTextArea = target && target.tagName === 'TEXTAREA';
-
-			if (isTextArea) {
-				return event.ctrlKey || event.metaKey;
-			}
-
-			return !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
-		}
-
-		function handleRequestKeydown(event) {
-			if (!shouldSendOnEnter(event)) {
-				return;
-			}
-
-			event.preventDefault();
-			sendRequest();
-		}
-
 		function switchTab(event) {
 			const clickedTab = event.target;
 			const tabName = clickedTab.dataset.tab;
@@ -701,9 +1134,37 @@ export function getRestClientHtml(): string {
 			return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 		}
 
+		function unwrapJsonString(value) {
+			let currentValue = value;
+
+			for (let depth = 0; depth < 2; depth++) {
+				if (typeof currentValue !== 'string') {
+					break;
+				}
+
+				const trimmedValue = currentValue.trim();
+				if (!trimmedValue) {
+					break;
+				}
+
+				try {
+					currentValue = JSON.parse(trimmedValue);
+				} catch (error) {
+					break;
+				}
+			}
+
+			return currentValue;
+		}
+
 		function formatJSON(json) {
 			try {
-				const parsed = JSON.parse(json);
+				const parsed = unwrapJsonString(json);
+
+				if (typeof parsed === 'string') {
+					return parsed;
+				}
+
 				return JSON.stringify(parsed, null, 2);
 			} catch (e) {
 				return json;
@@ -793,6 +1254,7 @@ export function getRestClientHtml(): string {
 					document.getElementById('url').value = message.request.url;
 					document.getElementById('method').value = message.request.method;
 					document.getElementById('requestBody').value = message.request.body || '';
+					updateRequestBodyMeta();
 					
 					// Check if Content-Type: application/json is in the headers
 					const hasJsonContentType = message.request.headers.some(h => 
@@ -856,7 +1318,11 @@ export function getRestClientHtml(): string {
 					document.getElementById('url').value = '';
 					document.getElementById('method').value = 'GET';
 					document.getElementById('requestBody').value = '';
-					document.getElementById('jsonContentType').checked = false;
+					updateRequestBodyMeta();
+					document.getElementById('schemaValidationEnabled').checked = false;
+					document.getElementById('requestSchema').value = '';
+					toggleSchemaSection();
+					document.getElementById('jsonContentType').checked = true;
 					document.getElementById('basicAuthEnabled').checked = false;
 					document.getElementById('basicAuthUser').value = '';
 					document.getElementById('basicAuthPass').value = '';
@@ -888,14 +1354,23 @@ export function getRestClientHtml(): string {
 		document.getElementById('saveRequestBtn').addEventListener('click', saveCurrentRequest);
 		document.getElementById('saveAsNewBtn').addEventListener('click', saveAsNewRequest);
 		document.getElementById('exportCurlBtn').addEventListener('click', exportRequestAsCurl);
+		document.getElementById('formatJsonBtn').addEventListener('click', function() {
+			formatRequestBodyJson(false);
+		});
+		document.getElementById('minifyJsonBtn').addEventListener('click', function() {
+			formatRequestBodyJson(true);
+		});
+		document.getElementById('clearJsonBtn').addEventListener('click', clearRequestBody);
 		document.getElementById('basicAuthEnabled').addEventListener('change', function() {
 			document.getElementById('basicAuthFields').style.display = this.checked ? '' : 'none';
 		});
+		document.getElementById('schemaValidationEnabled').addEventListener('change', toggleSchemaSection);
+		document.getElementById('requestSchema').addEventListener('input', updateSchemaMeta);
+		document.getElementById('requestSchema').addEventListener('keyup', updateSchemaMeta);
 		document.getElementById('copyResultsBtn').addEventListener('click', copyResults);
-		document.getElementById('url').addEventListener('keydown', handleRequestKeydown);
-		document.getElementById('method').addEventListener('keydown', handleRequestKeydown);
-		document.getElementById('headersContainer').addEventListener('keydown', handleRequestKeydown);
-		document.getElementById('requestBody').addEventListener('keydown', handleRequestKeydown);
+		document.getElementById('requestBody').addEventListener('input', updateRequestBodyMeta);
+		document.getElementById('requestBody').addEventListener('click', updateRequestBodyMeta);
+		document.getElementById('requestBody').addEventListener('keyup', updateRequestBodyMeta);
 		
 		// Event delegation for remove header buttons
 		document.getElementById('headersContainer').addEventListener('click', function(e) {
@@ -910,6 +1385,8 @@ export function getRestClientHtml(): string {
 		});
 
 		// Load saved headers and variables on startup
+		updateRequestBodyMeta();
+		toggleSchemaSection();
 		loadHeaders();
 		vscode.postMessage({ command: 'loadVariables' });
 	</script>

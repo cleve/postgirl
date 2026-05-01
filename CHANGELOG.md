@@ -4,6 +4,21 @@ All notable changes to the "postgirl" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.9.0 [05-01-2026]
+
+### Added
+- Request body editor controls: added `Format`, `Minify`, and `Clear` buttons for JSON request bodies
+- Request body feedback: added live JSON validation status and body metadata in the request editor
+- Request schema validation: added an optional JSON Schema panel to validate request bodies before sending
+
+### Changed
+- Request actions: removed keyboard shortcuts so send and JSON editor actions are button-only
+- JSON defaults: `Automatically add JSON Content-Type header` is now enabled by default and restored on form reset
+- Response rendering: stringified JSON responses are unwrapped before display for cleaner sharing output
+
+### Fixed
+- Webview runtime initialization: fixed an embedded script escaping bug that prevented request actions from binding
+
 ## 1.8.0 [03-22-2026]
 
 ### Added
